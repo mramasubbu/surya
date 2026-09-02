@@ -1,0 +1,142 @@
+/* --- Contact Page --- */
+.contact-section {
+  padding-top: var(--space-8);
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: var(--space-10);
+  margin-bottom: var(--space-16);
+}
+
+/* Contact Cards */
+.contact-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.contact-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  transition: all var(--transition-base);
+}
+
+.contact-card:hover {
+  border-color: var(--color-border-accent);
+  transform: translateY(-2px);
+}
+
+.contact-card-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: var(--space-3);
+}
+
+.contact-card h3 {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+
+.contact-card p {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--space-3);
+}
+
+.contact-phone {
+  display: block;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-primary) !important;
+  margin-bottom: var(--space-2);
+}
+
+.contact-hours-note {
+  font-size: var(--text-xs) !important;
+  color: var(--color-text-muted) !important;
+  font-style: italic;
+}
+
+/* Map */
+.contact-map {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.contact-map iframe {
+  display: block;
+}
+
+/* Platforms */
+.contact-platforms {
+  padding-top: var(--space-8);
+  border-top: 1px solid var(--color-border);
+}
+
+.platform-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+
+.platform-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-decoration: none;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  transition: all var(--transition-base);
+}
+
+.platform-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.platform-icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--space-3);
+}
+
+.platform-card h3 {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+  color: var(--color-text-primary);
+}
+
+.platform-card p {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 1024px) {
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+  .platform-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .contact-cards {
+    grid-template-columns: 1fr;
+  }
+  .platform-grid {
+    grid-template-columns: 1fr;
+  }
+}

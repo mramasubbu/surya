@@ -1,0 +1,174 @@
+/* --- Shared Page Styles --- */
+.page-content {
+  padding-top: var(--header-height);
+}
+
+.page-hero {
+  padding: var(--space-16) 0 var(--space-10);
+  text-align: center;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.page-hero h1 {
+  font-size: var(--text-4xl);
+  margin-bottom: var(--space-3);
+}
+
+.page-hero p {
+  font-size: var(--text-lg);
+  color: var(--color-text-secondary);
+}
+
+/* --- About Page --- */
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: var(--space-12);
+  align-items: start;
+}
+
+.about-image {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  position: sticky;
+  top: calc(var(--header-height) + var(--space-6));
+}
+
+.about-image img {
+  width: 100%;
+  height: 450px;
+  object-fit: cover;
+}
+
+.about-content p {
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+  margin-bottom: var(--space-4);
+}
+
+/* Cuisine Highlights */
+.about-cuisine-section {
+  background: var(--color-bg-secondary);
+}
+
+.cuisine-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  justify-content: center;
+}
+
+.cuisine-highlight-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5) var(--space-8);
+  transition: all var(--transition-base);
+}
+
+.cuisine-highlight-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.cuisine-highlight-name {
+  font-weight: 600;
+  font-size: var(--text-base);
+}
+
+/* Experience Grid */
+.experience-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-6);
+}
+
+.experience-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  text-align: center;
+  transition: all var(--transition-base);
+}
+
+.experience-card:hover {
+  border-color: var(--color-border-accent);
+  transform: translateY(-2px);
+}
+
+.experience-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
+.experience-card h3 {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.experience-card p {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+/* About CTA */
+.about-cta-section {
+  background: var(--color-bg-secondary);
+}
+
+.about-cta-card {
+  text-align: center;
+  padding: var(--space-12);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  background: var(--color-bg-surface);
+}
+
+.about-cta-card h2 {
+  font-size: var(--text-3xl);
+  margin-bottom: var(--space-3);
+}
+
+.about-cta-card p {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.about-cta-actions {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+  margin-top: var(--space-6);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1024px) {
+  .about-grid {
+    grid-template-columns: 1fr;
+  }
+  .about-image {
+    position: static;
+  }
+  .experience-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .experience-grid {
+    grid-template-columns: 1fr;
+  }
+  .page-hero {
+    padding: var(--space-12) 0 var(--space-8);
+  }
+  .page-hero h1 {
+    font-size: var(--text-2xl);
+  }
+}
