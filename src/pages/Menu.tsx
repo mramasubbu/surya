@@ -1,31 +1,59 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { menuCategories, type MenuCategory, type MenuItem } from '../data/menu';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { fetchMenuWithCategories } from '../services/menuService';
+import type { CategoryWithItems, MenuItemRow } from '../types/database';
 import './Menu.css';
 
 export const Menu: React.FC = () => {
+  const [categories, setCategories] = useState<CategoryWithItems[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const tabsRef = useRef<HTMLDivElement>(null);
 
-  const filteredCategories = useMemo(() => {
-    if (activeCategory === 'all' && !searchQuery) return menuCategories;
+  useEffect(() => {
+    let isMounted = true;
+    const loadMenu = async () => {
+      try {
+        const data = await fetchMenuWithCategories(false);
+        if (isMounted) {
+          setCategories(data);
+        }
+      } catch (err) {
+        console.error('Failed to load menu:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    loadMenu();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-    let cats = activeCategory === 'all' ? menuCategories : menuCategories.filter((c) => c.id === activeCategory);
+  const filteredCategories = useMemo(() => {
+    if (activeCategory === 'all' && !searchQuery) return categories;
+
+    let cats = activeCategory === 'all' ? categories : categories.filter((c) => c.id === activeCategory);
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       cats = cats
         .map((cat) => ({
           ...cat,
-          items: cat.items.filter((item) => item.name.toLowerCase().includes(q)),
+          items: cat.items.filter(
+            (item) =>
+              item.name.toLowerCase().includes(q) ||
+              (item.description && item.description.toLowerCase().includes(q))
+          ),
         }))
         .filter((cat) => cat.items.length > 0);
     }
 
     return cats;
-  }, [activeCategory, searchQuery]);
+  }, [categories, activeCategory, searchQuery]);
 
   const totalItems = filteredCategories.reduce((acc, cat) => acc + cat.items.length, 0);
+  const grandTotalItems = categories.reduce((a, c) => a + c.items.length, 0);
 
   const scrollCategoryIntoView = (id: string) => {
     setActiveCategory(id);
@@ -73,9 +101,9 @@ export const Menu: React.FC = () => {
                 className={`menu-tab ${activeCategory === 'all' ? 'menu-tab-active' : ''}`}
                 onClick={() => scrollCategoryIntoView('all')}
               >
-                All ({menuCategories.reduce((a, c) => a + c.items.length, 0)})
+                All ({grandTotalItems})
               </button>
-              {menuCategories.map((cat) => (
+              {categories.map((cat) => (
                 <button
                   key={cat.id}
                   data-cat={cat.id}
@@ -93,25 +121,44 @@ export const Menu: React.FC = () => {
             <p className="menu-results-count">{totalItems} item{totalItems !== 1 ? 's' : ''} found</p>
           )}
 
+          {/* Loading State */}
+          {loading && (
+            <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--color-text-secondary)' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                margin: '0 auto 1rem',
+                border: '3px solid var(--color-border)',
+                borderTopColor: 'var(--color-primary)',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+              }} />
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              <p>Loading fresh menu items...</p>
+            </div>
+          )}
+
           {/* Menu Items */}
-          <div className="menu-categories">
-            {filteredCategories.map((cat) => (
-              <MenuCategorySection key={cat.id} category={cat} />
-            ))}
-            {filteredCategories.length === 0 && (
-              <div className="menu-empty">
-                <p>No items found for "{searchQuery}"</p>
-                <button onClick={() => { setSearchQuery(''); setActiveCategory('all'); }}>Show all items</button>
-              </div>
-            )}
-          </div>
+          {!loading && (
+            <div className="menu-categories">
+              {filteredCategories.map((cat) => (
+                <MenuCategorySection key={cat.id} category={cat} />
+              ))}
+              {filteredCategories.length === 0 && (
+                <div className="menu-empty">
+                  <p>No items found for "{searchQuery}"</p>
+                  <button onClick={() => { setSearchQuery(''); setActiveCategory('all'); }}>Show all items</button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
     </main>
   );
 };
 
-const MenuCategorySection: React.FC<{ category: MenuCategory }> = ({ category }) => {
+const MenuCategorySection: React.FC<{ category: CategoryWithItems }> = ({ category }) => {
   return (
     <div className="menu-category" id={`cat-${category.id}`}>
       <div className="menu-category-header">
@@ -127,24 +174,39 @@ const MenuCategorySection: React.FC<{ category: MenuCategory }> = ({ category })
   );
 };
 
-const MenuItemCard: React.FC<{ item: MenuItem }> = ({ item }) => {
+const MenuItemCard: React.FC<{ item: MenuItemRow }> = ({ item }) => {
   return (
-    <div className="menu-item-card">
+    <div
+      className="menu-item-card"
+      style={!item.is_available ? { opacity: 0.65 } : undefined}
+    >
       <div className="menu-item-header">
         <span className={`diet-indicator ${item.diet}`} />
         <div className="menu-item-info">
-          <h3 className="menu-item-name">{item.name}</h3>
+          <h3 className="menu-item-name">
+            {item.name}
+            {!item.is_available && (
+              <span style={{
+                fontSize: '0.7rem',
+                color: 'var(--color-text-muted)',
+                marginLeft: '0.5rem',
+                fontWeight: 'normal',
+              }}>
+                (Sold Out)
+              </span>
+            )}
+          </h3>
           {item.description && <p className="menu-item-desc">{item.description}</p>}
         </div>
       </div>
       <div className="menu-item-price">
-        {item.priceLabel ? (
-          <span>₹{item.priceLabel}</span>
+        {item.price_label ? (
+          <span>₹{item.price_label}</span>
         ) : (
           <span>₹{item.price}</span>
         )}
       </div>
-      {item.popular && <span className="menu-item-badge">Popular</span>}
+      {item.is_popular && <span className="menu-item-badge">Popular</span>}
     </div>
   );
 };

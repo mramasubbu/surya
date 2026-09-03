@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/common/Button';
 import { SectionHeading } from '../components/common/SectionHeading';
@@ -6,9 +6,27 @@ import { useInView } from '../hooks/useInView';
 import { restaurant } from '../data/restaurant';
 import { getPopularItems, menuCategories } from '../data/menu';
 import { galleryImages } from '../data/gallery';
+import { fetchPopularMenuItems, fetchMenuWithCategories } from '../services/menuService';
+import { fetchActiveOffers } from '../services/offersService';
+import type { MenuItemRow, CategoryWithItems, OfferRow } from '../types/database';
 import './Home.css';
 
-const popularItems = getPopularItems().slice(0, 6);
+const initialPopular: MenuItemRow[] = getPopularItems().slice(0, 6).map((item, idx) => ({
+  id: item.id,
+  category_id: 'starters',
+  name: item.name,
+  description: item.description || null,
+  price: item.price,
+  price_label: item.priceLabel || null,
+  diet: item.diet,
+  image_url: item.image || null,
+  is_popular: true,
+  is_available: true,
+  is_active: true,
+  display_order: idx + 1,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+}));
 
 const highlights = [
   { icon: '🍽️', title: 'Multicuisine Dining', desc: 'North Indian, Chinese, Tandoori, Seafood & BBQ under one roof' },
@@ -17,9 +35,61 @@ const highlights = [
   { icon: '📍', title: 'Convenient Location', desc: 'Vanagaram High Road, Ambattur — easy to find and reach' },
 ];
 
-const featuredCategories = menuCategories.filter(c => c.image).slice(0, 6);
-
 export const Home: React.FC = () => {
+  const [popularItems, setPopularItems] = useState<MenuItemRow[]>(initialPopular);
+  const [categories, setCategories] = useState<CategoryWithItems[]>([]);
+  const [offers, setOffers] = useState<OfferRow[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadHomeData = async () => {
+      try {
+        const [items, cats, activeOffers] = await Promise.all([
+          fetchPopularMenuItems(),
+          fetchMenuWithCategories(false),
+          fetchActiveOffers(),
+        ]);
+        if (isMounted) {
+          if (items && items.length > 0) setPopularItems(items);
+          if (cats && cats.length > 0) setCategories(cats);
+          if (activeOffers) setOffers(activeOffers);
+        }
+      } catch (err) {
+        console.warn('Home data loading note:', err);
+      }
+    };
+    loadHomeData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const displayCategories = categories.length > 0
+    ? categories.filter((c) => c.image_url).slice(0, 6)
+    : menuCategories.filter((c) => c.image).slice(0, 6).map((c) => ({
+        id: c.id,
+        slug: c.id,
+        name: c.name,
+        image_url: c.image || null,
+        display_order: 1,
+        is_active: true,
+        created_at: '',
+        updated_at: '',
+        items: c.items.map((i) => ({
+          ...i,
+          category_id: c.id,
+          price_label: i.priceLabel || null,
+          image_url: i.image || null,
+          is_popular: Boolean(i.popular),
+          is_available: true,
+          is_active: true,
+          display_order: 1,
+          created_at: '',
+          updated_at: '',
+          description: i.description || null,
+        })),
+      }));
+
   return (
     <main>
       {/* Hero */}
@@ -43,15 +113,46 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
+      {/* Special Offers & Promotions */}
+      {offers.length > 0 && (
+        <section className="section offers-section" id="offers">
+          <div className="container">
+            <SectionHeading
+              title="Special Offers & Promos"
+              subtitle="Enjoy special discounts and complimentary delicacies crafted for you"
+            />
+            <div className="offers-grid">
+              {offers.map((offer) => (
+                <div key={offer.id} className="offer-card">
+                  <div>
+                    {offer.discount_tag && <span className="offer-badge">{offer.discount_tag}</span>}
+                    <h3>{offer.title}</h3>
+                    <p>{offer.description}</p>
+                  </div>
+                  <div className="offer-footer">
+                    <span>
+                      {offer.end_date ? `Valid till ${offer.end_date}` : 'Limited time offer'}
+                    </span>
+                    <Button variant="outline" size="sm" href="/reservations">
+                      Claim Offer
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Cuisine Categories */}
       <section className="section cuisine-section" id="cuisines">
         <div className="container">
           <SectionHeading title="Explore Our Menu" subtitle="From aromatic biryanis to sizzling BBQ — find your favourite cuisine" />
           <div className="cuisine-grid">
-            {featuredCategories.map((cat, i) => (
+            {displayCategories.map((cat, i) => (
               <Link to="/menu" key={cat.id} className={`cuisine-card animate-fade-in-up delay-${i + 1}`} style={{ animationPlayState: 'paused' }}>
                 <div className="cuisine-card-img">
-                  <img src={cat.image} alt={cat.name} loading="lazy" />
+                  <img src={cat.image_url || '/images/menu/chilli-chicken.jpg'} alt={cat.name} loading="lazy" />
                   <div className="cuisine-card-overlay" />
                 </div>
                 <div className="cuisine-card-content">
@@ -165,7 +266,7 @@ export const Home: React.FC = () => {
         <div className="container">
           <div className="reservation-cta-card">
             <h2>Reserve Your Table</h2>
-            <p>Planning a family dinner or a special occasion? Book a table in advance via WhatsApp.</p>
+            <p>Planning a family dinner or a special occasion? Book a table in advance.</p>
             <Button variant="primary" size="lg" href="/reservations" icon={<span>📅</span>}>Make a Reservation</Button>
           </div>
         </div>
@@ -240,7 +341,7 @@ const IntroSection: React.FC = () => {
   );
 };
 
-const FeaturedCard: React.FC<{ item: ReturnType<typeof getPopularItems>[0]; index: number }> = ({ item, index }) => {
+const FeaturedCard: React.FC<{ item: MenuItemRow; index: number }> = ({ item, index }) => {
   const { ref, isInView } = useInView();
   const categoryImages: Record<string, string> = {
     'Chicken Lollipop': '/images/menu/chilli-chicken.jpg',
@@ -255,7 +356,7 @@ const FeaturedCard: React.FC<{ item: ReturnType<typeof getPopularItems>[0]; inde
     'Garlic Naan': '/images/menu/naan-breads.jpg',
     'BBQ Chicken': '/images/menu/bbq-chicken.jpg',
   };
-  const img = categoryImages[item.name] || '/images/restaurant/hero-food-spread.jpg';
+  const img = item.image_url || categoryImages[item.name] || '/images/restaurant/hero-food-spread.jpg';
 
   return (
     <div ref={ref} className={`featured-card ${isInView ? 'animate-fade-in-up' : 'pre-animate'}`} style={{ animationDelay: `${index * 0.1}s` }}>
@@ -265,7 +366,7 @@ const FeaturedCard: React.FC<{ item: ReturnType<typeof getPopularItems>[0]; inde
       </div>
       <div className="featured-card-body">
         <h3>{item.name}</h3>
-        <p className="featured-card-price">₹{item.price}</p>
+        <p className="featured-card-price">₹{item.price_label || item.price}</p>
       </div>
     </div>
   );

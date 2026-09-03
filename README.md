@@ -1,188 +1,172 @@
-# Surya Multicuisine Restaurant & Cafe — Website
+# Surya Multicuisine Restaurant & Cafe — Dynamic Web App & Admin Console
 
-A modern, responsive, production-ready static web application for **Surya Multicuisine Restaurant & Cafe**, located in Ambattur, Chennai. Built with React, TypeScript, and Vite, with custom design aesthetics derived from the restaurant's authentic brand identity, physical interior, and verified menu.
+A production-ready, dynamic full-stack web application for **Surya Multicuisine Restaurant & Cafe**, located on Vanagaram High Road in Ambattur, Chennai.
+
+Built with **React 19, Vite, TypeScript, and Supabase** (PostgreSQL, Authentication, Row Level Security, and Storage), targeting **₹0/month** on free-tier infrastructure (Netlify Free + Supabase Free).
 
 ---
 
-## 🌟 Features
+## 🌟 Dynamic Application Architecture
 
-* **Authentic Branding:** Palette and typography derived from real menu cards (warm orange `#E8722A`, slate navy `#12121E`, gold accents `#F4B942`, and teal interior accents `#26A69A`).
-* **Verified Menu Data:** Over 200 item prices directly verified from official menu cards across 10 categories.
-* **Interactive Digital Menu:** Real-time search, category filter tabs, dietary indicators (Veg / Non-Veg / Egg), and popular tags.
-* **Filterable Gallery & Lightbox:** High-resolution photography with category filtering, full-screen lightbox modal, and keyboard navigation (`Esc`, `←`, `→`).
-* **Direct WhatsApp Table Reservations:** Client-side form with input validation that generates pre-formatted WhatsApp booking messages.
-* **Mobile-First UX:** Sticky navigation, animated hamburger menu, and a bottom quick-action bar (Call, WhatsApp, Directions, Order).
-* **SEO & Local Search Optimized:** LocalBusiness / Restaurant Schema.org JSON-LD structured data, OpenGraph, Twitter Cards, and canonical tags for Ambattur / Chennai local search.
-* **Netlify-Ready:** Configured with `netlify.toml` for seamless client-side SPA routing and zero-downtime deployment.
+```
+                             CUSTOMER / DINER
+                                    │
+                                    ▼
+    ┌──────────────────────────────────────────────────────────────┐
+    │                      React 19 + Vite                         │
+    │   Public Routes: /, /menu, /reservations, /contact, etc.    │
+    │   Admin Routes:  /admin/login, /admin (Console)              │
+    └───────────────┬──────────────────────────────┬───────────────┘
+                    │                              │
+                    │ Public Read & Submission     │ Authenticated Admin Session
+                    ▼                              ▼
+    ┌──────────────────────────────────────────────────────────────┐
+    │                        Supabase                              │
+    ├──────────────────────────────────────────────────────────────┤
+    │  PostgreSQL (RLS Protected)   │  Auth                        │
+    │  - categories                 │  - Admin user sessions       │
+    │  - menu_items                 │  Storage                     │
+    │  - offers                     │  - restaurant-images bucket  │
+    │  - bookings                   │  Security                    │
+    │  - contact_messages           │  - Row Level Security (RLS)  │
+    │  - admin_users (RBAC)         │  - No service_role key leak  │
+    └──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📋 Features
+
+### Customer-Facing Website
+* **Dynamic Menu (`/menu`):** Real-time categories, dishes, prices, descriptions, and dietary indicators (Veg/Non-Veg/Egg) fetched from Supabase, with client-side search and category filtering.
+* **Special Offers & Promotions:** Dynamic festive deals, combo promotions, and discounts displayed on the Home page.
+* **Table Reservations (`/reservations`):** Customers submit reservation requests (Name, Phone, Date, Time, Guests, Special requests). Requests are safely stored in Supabase with `pending` status, and customers receive a confirmation modal with an optional instant WhatsApp button.
+* **Interactive Contact Form (`/contact`):** Allows customers to send inquiries directly to the management team.
+* **Authentic Aesthetics:** Preserves the dark restaurant ambiance (`#0B0B14`, `#12121E`), orange headers (`#E8722A`), gold accents (`#F4B942`), and responsive mobile bottom action bar.
+
+### Admin Dashboard (`/admin`)
+* **Overview:** High-level metrics for Menu Items, Active Categories, Pending Bookings, Unread Inquiries, and Active Promotions.
+* **Categories Management:** Add new categories, edit names/slugs, reorder display order, and activate/deactivate.
+* **Menu Items Management:** Full CRUD (add, edit price, edit description, toggle availability, toggle popular status, toggle active status, upload photo to Supabase Storage `restaurant-images`).
+* **Offers Management:** Create and update special promotions with discount badges and date ranges.
+* **Bookings Management:** Filter reservations by status (`Pending`, `Confirmed`, `Cancelled`) and date. Direct **Confirm**, **Cancel**, **Call**, and **WhatsApp** action buttons.
+* **Customer Inquiries:** Review messages submitted from the contact form, mark as `Read` or `Resolved`.
+* **Security & Auth:** Protected via Supabase Authentication + Role-Based Access Control (`admin_users` table). Unauthenticated visitors are redirected to `/admin/login`.
 
 ---
 
 ## 🛠️ Tech Stack
 
-* **Framework:** React 19 + Vite 6
-* **Language:** TypeScript
-* **Routing:** React Router v7 (`react-router-dom`)
-* **Styling:** Vanilla CSS with Custom Properties (CSS variables), glassmorphism, responsive grid layouts, and hardware-accelerated animations
-* **Fonts:** Playfair Display (editorial headings) & Inter (clean UI typography) via Google Fonts
-* **Deployment:** Netlify (SPA rewrite configuration included)
+* **Frontend:** React 19, TypeScript, Vite
+* **Routing:** React Router v7 (`react-router-dom`) with code-splitting for admin bundles
+* **Database & Auth:** Supabase Free (PostgreSQL, Supabase Auth, Row Level Security)
+* **Storage:** Supabase Storage (`restaurant-images` bucket)
+* **Styling:** Vanilla CSS Custom Properties (Theme tokens, glassmorphism, responsive grids)
+* **Hosting:** Netlify Free (with SPA redirects configured in `netlify.toml`)
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Supabase Setup Guide
 
-### Prerequisites
+### Step 1: Create a Supabase Project (Free Tier)
+1. Sign up or log in at [supabase.com](https://supabase.com/).
+2. Click **New Project** and name it `surya-restaurant`.
+3. Choose a strong database password and select your nearest region (e.g. `ap-south-1` Mumbai).
 
-* Node.js (v18 or newer recommended)
-* npm (v9 or newer)
+### Step 2: Run Database Migration
+1. In your Supabase Dashboard, go to the **SQL Editor** on the left menu.
+2. Open [`supabase/migrations/20260903000000_initial_schema.sql`](./supabase/migrations/20260903000000_initial_schema.sql) in this repository.
+3. Paste the entire SQL script into the SQL Editor and click **Run**.
+4. This will automatically create:
+   * Tables: `categories`, `menu_items`, `offers`, `bookings`, `contact_messages`, `admin_users`
+   * Indexes and `updated_at` auto-triggers
+   * Row Level Security (RLS) policies
+   * Storage bucket `restaurant-images` with access policies
+   * Pre-populated seed data for all 10 verified categories and 100+ menu items with exact prices.
 
-### Installation
+### Step 3: Create Your Admin Account
+1. In your Supabase Dashboard, go to **Authentication** > **Users** and click **Add User** > **Create User** (or sign up via the app).
+   * Email: `admin@surya.com` (or your email)
+   * Password: your chosen admin password
+   * Ensure **Auto Confirm User** is checked.
+2. Copy the **User UID** of the created user.
+3. In the **SQL Editor**, run this query to grant admin permissions:
+   ```sql
+   INSERT INTO public.admin_users (id, role)
+   VALUES ('YOUR_USER_UID_HERE', 'superadmin')
+   ON CONFLICT (id) DO NOTHING;
+   ```
+
+### Step 4: Obtain API Credentials
+1. Go to **Project Settings** > **API**.
+2. Copy the **Project URL** and the **anon / public** API key.
+   *(Never use or expose the `service_role` secret in frontend code!)*
+
+---
+
+## 🔐 Environment Variables
+
+### Local Development (`.env`)
+Create a `.env` file in the project root (based on `.env.example`):
+```env
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-publishable-key-here
+```
+
+### Netlify Deployment Environment Variables
+When deploying to Netlify:
+1. Log in to [app.netlify.com](https://app.netlify.com/).
+2. Go to your site > **Site configuration** > **Environment variables**.
+3. Add the following variables:
+   * `VITE_SUPABASE_URL`: `https://your-project-id.supabase.co`
+   * `VITE_SUPABASE_ANON_KEY`: `your-anon-publishable-key-here`
+4. Trigger a new deployment. Netlify will build the site with live Supabase connectivity!
+
+---
+
+## 💻 Running Locally
 
 ```bash
-# Clone or navigate to the project directory
-cd "d:/Projects/JS/React JS/Suriya"
-
-# Install dependencies
+# 1. Install dependencies
 npm install
-```
 
-### Local Development
-
-To start the Vite development server with Hot Module Replacement (HMR):
-
-```bash
+# 2. Start Vite development server
 npm run dev
-```
 
-Open your browser and navigate to `http://localhost:5173`.
-
-### Production Build
-
-To type-check and generate an optimized static bundle in `dist/`:
-
-```bash
+# 3. Production build check
 npm run build
-```
 
-To preview the production build locally:
-
-```bash
+# 4. Preview production build locally
 npm run preview
 ```
 
----
-
-## 🌐 Netlify Deployment
-
-This project is configured out-of-the-box for Netlify via [`netlify.toml`](./netlify.toml):
-
-```toml
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-[build]
-  publish = "dist"
-  command = "npm run build"
-```
-
-### Deploying via Netlify CLI:
-
-```bash
-# Install Netlify CLI if needed
-npm install -g netlify-cli
-
-# Login and deploy
-netlify deploy --prod
-```
-
-### Deploying via Git (GitHub / GitLab):
-1. Push this repository to GitHub.
-2. Link the repository in Netlify dashboard.
-3. Build command: `npm run build`
-4. Publish directory: `dist`
+Open `http://localhost:5173` to explore the website.
+Visit `http://localhost:5173/admin` to access the Admin Console.
 
 ---
 
-## 📁 Project Structure
+## 🛡️ Database Security & RLS Summary
 
-```text
-surya-restaurant/
-├── docs/
-│   ├── assets.md              # Registry of all media assets and origins
-│   └── research.md            # Verified restaurant research details and sources
-├── public/
-│   ├── favicon.svg            # Surya sun vector favicon
-│   └── images/
-│       ├── branding/          # Restaurant emblem (logo.svg)
-│       ├── menu/              # Dish photographs (biryani, tandoori, seafood, etc.)
-│       └── restaurant/        # Interior and hero dining spreads
-├── src/
-│   ├── components/
-│   │   ├── common/            # Reusable UI primitives (Button, SectionHeading)
-│   │   └── layout/            # Layout shells (Header, Footer, MobileActionBar)
-│   ├── data/
-│   │   ├── gallery.ts         # Gallery image entries and categories
-│   │   ├── menu.ts            # Complete categorized menu with verified prices
-│   │   └── restaurant.ts      # Core restaurant profile, contacts, links, coordinates
-│   ├── hooks/
-│   │   └── useInView.ts       # IntersectionObserver hook for viewport animations
-│   ├── pages/
-│   │   ├── About.tsx          # About page & dining experience
-│   │   ├── Contact.tsx        # Contact cards, hours, embed map
-│   │   ├── Gallery.tsx        # Responsive photo gallery with modal lightbox
-│   │   ├── Home.tsx           # Hero, highlights, cuisine cards, popular dishes
-│   │   ├── Menu.tsx           # Category tabs, search filtering, menu cards
-│   │   └── Reservations.tsx   # Form validating table requests to WhatsApp
-│   ├── App.tsx                # Client-side router configuration
-│   ├── index.css              # Global design tokens, resets, utility classes
-│   └── main.tsx               # Application root
-├── index.html                 # SEO metadata, Google Fonts, JSON-LD Schema
-├── netlify.toml               # Netlify SPA redirect rules
-├── package.json
-├── tsconfig.json
-└── vite.config.ts
-```
+| Table | Public Access | Admin Access |
+| :--- | :--- | :--- |
+| `categories` | `SELECT` (active only) | Full CRUD |
+| `menu_items` | `SELECT` (active only) | Full CRUD |
+| `offers` | `SELECT` (active only) | Full CRUD |
+| `bookings` | `INSERT` only (cannot read other bookings) | Full CRUD |
+| `contact_messages` | `INSERT` only (cannot read other messages) | Full CRUD |
+| `admin_users` | `SELECT` own record | Full CRUD |
+| Storage `restaurant-images` | `SELECT` (public view) | Upload / Delete |
 
 ---
 
-## ✏️ Maintenance & Updates Guide
+## 📬 Free-Tier Email Notifications Architecture
 
-### 1. Updating Restaurant Information (Phone, Address, Hours)
-All core business details are centralized in [`src/data/restaurant.ts`](./src/data/restaurant.ts).
-Update fields such as:
-* `restaurant.address`
-* `restaurant.contact.phone`
-* `restaurant.hours.display`
-* `restaurant.links` (Swiggy, Zomato, Google Reviews)
+To remain **₹0/month**, table bookings are stored directly in the `bookings` table, and the customer is presented with an optional instant WhatsApp button.
 
-### 2. Updating Menu Items & Pricing
-All categories and items are structured in [`src/data/menu.ts`](./src/data/menu.ts).
-To edit or add a dish:
-```typescript
-{
-  id: 'unique-id',
-  name: 'Dish Name',
-  price: 199,
-  diet: 'veg' | 'non-veg' | 'egg',
-  popular: true, // optional badge
-}
-```
-
-### 3. Updating External Delivery or Map Links
-Edit `restaurant.links` in [`src/data/restaurant.ts`](./src/data/restaurant.ts):
-```typescript
-links: {
-  swiggy: 'https://www.swiggy.com/...',
-  district: 'https://www.district.in/...',
-  googleMaps: '...',
-}
-```
-
-### 4. Replacing or Adding Photos
-1. Place new JPG or WebP images in `public/images/menu/` or `public/images/restaurant/`.
-2. Update the image paths in [`src/data/menu.ts`](./src/data/menu.ts) or [`src/data/gallery.ts`](./src/data/gallery.ts).
-3. Document any new assets in [`docs/assets.md`](./docs/assets.md).
+If automated email notifications to restaurant management are required:
+* Configure a **Supabase Database Webhook** or **Netlify Serverless Function** triggered on `bookings` INSERT.
+* Connect with **Resend** (3,000 free emails/month) or **SendGrid Free Tier** (100 emails/day).
+* The booking system is completely decoupled so customer submissions succeed 100% reliably even if email quotas are exceeded.
 
 ---
 
