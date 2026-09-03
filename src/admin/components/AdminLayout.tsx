@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../../components/common/Button';
 import './AdminLayout.css';
@@ -21,6 +22,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   children,
 }) => {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/admin/login', { replace: true });
+  };
 
   return (
     <div className="admin-container">
@@ -42,7 +49,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           <Button variant="outline" size="sm" href="/" target="_blank">
             🌐 View Site
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => signOut()}>
+          <Button variant="ghost" size="sm" onClick={handleSignOut}>
             Sign Out
           </Button>
         </div>

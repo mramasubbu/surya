@@ -33,7 +33,12 @@ export const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }
     );
   }
 
-  // If Supabase is not configured yet, allow demo/setup view with a warning banner
+  // If unauthenticated, always redirect to login
+  if (!user) {
+    return <Navigate to="/admin/login" state={{ from: location }} replace />;
+  }
+
+  // If Supabase is not configured yet, show preview notice banner on top of dashboard
   if (!isSupabaseConfigured()) {
     return (
       <div>
@@ -50,10 +55,6 @@ export const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }
         {children}
       </div>
     );
-  }
-
-  if (!user) {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
 
   if (!isAdmin) {

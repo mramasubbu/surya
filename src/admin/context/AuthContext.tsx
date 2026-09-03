@@ -114,12 +114,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    if (isSupabaseConfigured()) {
-      await supabase.auth.signOut();
+    try {
+      if (isSupabaseConfigured()) {
+        await supabase.auth.signOut();
+      }
+    } catch (err) {
+      console.warn('Supabase sign out error:', err);
+    } finally {
+      setUser(null);
+      setSession(null);
+      setIsAdmin(false);
+      // Clean up Supabase auth items in localStorage
+      if (typeof window !== 'undefined') {
+        for (const key of Object.keys(localStorage)) {
+          if (key.startsWith('sb-')) {
+            localStorage.removeItem(key);
+          }
+        }
+      }
     }
-    setUser(null);
-    setSession(null);
-    setIsAdmin(false);
   };
 
   return (
