@@ -109,12 +109,29 @@ export const fetchPopularMenuItems = async (): Promise<MenuItemRow[]> => {
       .eq('is_popular', true)
       .limit(6);
 
-    if (error || !data || data.length === 0) {
+    if (error) {
+      console.warn('Error fetching popular items from Supabase:', error.message);
       const all = getFallbackCategoriesWithItems().flatMap((c) => c.items);
       return all.filter((i) => i.is_popular).slice(0, 6);
     }
 
-    return data;
+    if (data && data.length > 0) {
+      return data;
+    }
+
+    // If no items are marked popular in database, return top 6 active dishes from database
+    const { data: firstSix, error: err2 } = await supabase
+      .from('menu_items')
+      .select('*')
+      .eq('is_active', true)
+      .limit(6);
+
+    if (err2 || !firstSix || firstSix.length === 0) {
+      const all = getFallbackCategoriesWithItems().flatMap((c) => c.items);
+      return all.filter((i) => i.is_popular).slice(0, 6);
+    }
+
+    return firstSix;
   } catch {
     const all = getFallbackCategoriesWithItems().flatMap((c) => c.items);
     return all.filter((i) => i.is_popular).slice(0, 6);
