@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AdminLayout, type AdminTab } from '../components/AdminLayout';
+import { SettingsView } from '../components/SettingsView';
 import { Button } from '../../components/common/Button';
 import {
   fetchMenuWithCategories,
@@ -291,11 +292,55 @@ export const AdminDashboard: React.FC = () => {
   };
 
   // --- Settings Handlers ---
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setActionLoading(true);
+    try {
+      const { url } = await uploadRestaurantImage(file, 'branding');
+      setSettingsForm((prev) => ({ ...prev, logo_url: url }));
+      notify('Logo uploaded successfully! Remember to click Save Settings.');
+    } catch (err: unknown) {
+      notify(err instanceof Error ? err.message : 'Failed to upload logo', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleOgImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setActionLoading(true);
+    try {
+      const { url } = await uploadRestaurantImage(file, 'seo');
+      setSettingsForm((prev) => ({ ...prev, og_image_url: url }));
+      notify('Social share image uploaded successfully! Remember to click Save Settings.');
+    } catch (err: unknown) {
+      notify(err instanceof Error ? err.message : 'Failed to upload image', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
     try {
       const updated = await updateRestaurantSettings({
+        site_name: (settingsForm.site_name || '').trim(),
+        site_short_name: (settingsForm.site_short_name || '').trim(),
+        site_tagline: (settingsForm.site_tagline || '').trim(),
+        logo_url: (settingsForm.logo_url || '').trim(),
+        seo_title: (settingsForm.seo_title || '').trim(),
+        seo_description: (settingsForm.seo_description || '').trim(),
+        seo_keywords: (settingsForm.seo_keywords || '').trim(),
+        og_image_url: (settingsForm.og_image_url || '').trim(),
+        contact_phone: (settingsForm.contact_phone || '').trim(),
+        contact_phone_display: (settingsForm.contact_phone_display || '').trim(),
+        contact_whatsapp: (settingsForm.contact_whatsapp || '').trim(),
+        address_full: (settingsForm.address_full || '').trim(),
+        google_maps_url: (settingsForm.google_maps_url || '').trim(),
+        operating_hours: (settingsForm.operating_hours || '').trim(),
         is_ordering_enabled: settingsForm.is_ordering_enabled,
         is_delivery_enabled: settingsForm.is_delivery_enabled,
         min_order_amount: Number(settingsForm.min_order_amount),
@@ -305,7 +350,7 @@ export const AdminDashboard: React.FC = () => {
         customer_email_notifications: settingsForm.customer_email_notifications,
       });
       setSettingsForm(updated);
-      notify('Restaurant ordering settings saved successfully!');
+      notify('Restaurant branding, SEO, and ordering settings saved successfully!');
     } catch (err: unknown) {
       notify(err instanceof Error ? err.message : 'Failed to save settings', 'error');
     } finally {
@@ -1760,178 +1805,15 @@ export const AdminDashboard: React.FC = () => {
 
       {/* ===================== SETTINGS TAB ===================== */}
       {currentTab === 'settings' && (
-        <div>
-          <div className="admin-section-header">
-            <div>
-              <h1>Restaurant Ordering Settings</h1>
-              <p>Configure delivery fees, minimum order amounts, and notification settings dynamically without code changes.</p>
-            </div>
-            <Button
-              variant="primary"
-              size="sm"
-              type="button"
-              disabled={actionLoading}
-              onClick={handleSaveSettings}
-            >
-              {actionLoading ? 'Saving...' : '💾 Save Settings'}
-            </Button>
-          </div>
-
-          <form id="restaurant-settings-form" onSubmit={handleSaveSettings}>
-            <div className="settings-form-grid">
-              {/* Online Ordering Controls */}
-              <div className="settings-card">
-                <div className="settings-card-header">
-                  <h3><span>📱</span> Online Ordering Service</h3>
-                </div>
-
-                <div className="settings-toggle-row">
-                  <div className="settings-toggle-label">
-                    <strong>Accept Online Orders</strong>
-                    <span>Allow customers to place orders from the website</span>
-                  </div>
-                  <label className="admin-toggle">
-                    <input
-                      type="checkbox"
-                      checked={settingsForm.is_ordering_enabled}
-                      onChange={(e) =>
-                        setSettingsForm({ ...settingsForm, is_ordering_enabled: e.target.checked })
-                      }
-                    />
-                    <span className="toggle-slider" />
-                  </label>
-                </div>
-
-                <div className="admin-form-group" style={{ marginTop: '1rem' }}>
-                  <label>Minimum Order Amount (₹)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={10}
-                    required
-                    value={settingsForm.min_order_amount}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, min_order_amount: Number(e.target.value) })
-                    }
-                  />
-                  <small style={{ color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                    Orders below this subtotal will be blocked with a prompt to add more items. (Current: ₹{settingsForm.min_order_amount})
-                  </small>
-                </div>
-              </div>
-
-              {/* Delivery Fee & Area Controls */}
-              <div className="settings-card">
-                <div className="settings-card-header">
-                  <h3><span>🛵</span> Delivery & Charges</h3>
-                </div>
-
-                <div className="settings-toggle-row">
-                  <div className="settings-toggle-label">
-                    <strong>Enable Home Delivery</strong>
-                    <span>Accept delivery orders at customer doorstep</span>
-                  </div>
-                  <label className="admin-toggle">
-                    <input
-                      type="checkbox"
-                      checked={settingsForm.is_delivery_enabled}
-                      onChange={(e) =>
-                        setSettingsForm({ ...settingsForm, is_delivery_enabled: e.target.checked })
-                      }
-                    />
-                    <span className="toggle-slider" />
-                  </label>
-                </div>
-
-                <div className="admin-form-group" style={{ marginTop: '1rem' }}>
-                  <label>Delivery Fee (₹)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={5}
-                    required
-                    value={settingsForm.delivery_fee}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, delivery_fee: Number(e.target.value) })
-                    }
-                  />
-                  <small style={{ color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                    Currently set to ₹{settingsForm.delivery_fee}. Changing this updates all customer checkouts immediately.
-                  </small>
-                </div>
-
-                <div className="admin-form-group">
-                  <label>Delivery Radius (Approx KM)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={25}
-                    step={0.5}
-                    required
-                    value={settingsForm.delivery_radius_km}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, delivery_radius_km: Number(e.target.value) })
-                    }
-                  />
-                  <small style={{ color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                    Initial delivery radius around Ambattur (Default: 3.0 KM).
-                  </small>
-                </div>
-              </div>
-
-              {/* Notifications Controls */}
-              <div className="settings-card">
-                <div className="settings-card-header">
-                  <h3><span>✉️</span> Notifications</h3>
-                </div>
-
-                <div className="admin-form-group">
-                  <label>Restaurant Order Alert Email</label>
-                  <input
-                    type="email"
-                    required
-                    value={settingsForm.restaurant_email}
-                    onChange={(e) =>
-                      setSettingsForm({ ...settingsForm, restaurant_email: e.target.value })
-                    }
-                  />
-                  <small style={{ color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                    Staff notification email address to receive incoming order details.
-                  </small>
-                </div>
-
-                <div className="settings-toggle-row">
-                  <div className="settings-toggle-label">
-                    <strong>Customer Email Receipts</strong>
-                    <span>Send confirmation and status update emails to customers</span>
-                  </div>
-                  <label className="admin-toggle">
-                    <input
-                      type="checkbox"
-                      checked={settingsForm.customer_email_notifications}
-                      onChange={(e) =>
-                        setSettingsForm({ ...settingsForm, customer_email_notifications: e.target.checked })
-                      }
-                    />
-                    <span className="toggle-slider" />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-              <Button
-                variant="primary"
-                size="md"
-                type="submit"
-                disabled={actionLoading}
-                onClick={handleSaveSettings}
-              >
-                {actionLoading ? 'Saving...' : '💾 Save Restaurant Settings'}
-              </Button>
-            </div>
-          </form>
-        </div>
+        <SettingsView
+          settingsForm={settingsForm}
+          setSettingsForm={setSettingsForm}
+          onSave={handleSaveSettings}
+          onLogoUpload={handleLogoUpload}
+          onOgImageUpload={handleOgImageUpload}
+          actionLoading={actionLoading}
+          notify={notify}
+        />
       )}
 
       {/* ===================== MODALS ===================== */}

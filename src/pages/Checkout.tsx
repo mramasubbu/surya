@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { createOnlineOrder } from '../services/orderService';
 import { sendOrderEmailNotification } from '../services/emailService';
+import { checkDeliveryRadius, type DeliveryRadiusCheckResult } from '../services/deliveryRadiusService';
 import { restaurant } from '../data/restaurant';
 import { Button } from '../components/common/Button';
 import './Checkout.css';
@@ -41,6 +42,14 @@ export const Checkout: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  // Delivery Radius Validation based on Guest PIN Code
+  const currentRadiusLimit = Number(settings.delivery_radius_km) || 3.0;
+  const cleanPincode = formData.pincode.replace(/\D/g, '').trim();
+
+  const pincodeCheck: DeliveryRadiusCheckResult = useMemo(() => {
+    return checkDeliveryRadius(cleanPincode, currentRadiusLimit);
+  }, [cleanPincode, currentRadiusLimit]);
 
   // If cart is empty, show return prompt
   if (items.length === 0 && !isSubmitting) {
@@ -83,9 +92,11 @@ export const Checkout: React.FC = () => {
       errs.delivery_address = 'Please enter complete delivery address (House/Flat No, Street)';
     }
 
-    const cleanPincode = formData.pincode.replace(/\D/g, '');
-    if (!cleanPincode || cleanPincode.length !== 6) {
-      errs.pincode = 'Please enter a 6-digit postal code';
+    const pinDigits = formData.pincode.replace(/\D/g, '');
+    if (!pinDigits || pinDigits.length !== 6) {
+      errs.pincode = 'Please enter a valid 6-digit postal PIN code';
+    } else if (!pincodeCheck.isDeliverable) {
+      errs.pincode = pincodeCheck.message;
     }
 
     setErrors(errs);
@@ -117,6 +128,14 @@ export const Checkout: React.FC = () => {
     if (!meetsMinimum) {
       setServerError(
         `Minimum order amount is ₹${minOrderAmount}. Please add ₹${amountNeededForMinimum} more to your cart.`
+      );
+      return;
+    }
+
+    // Validate delivery radius coverage
+    if (!pincodeCheck.isDeliverable) {
+      setServerError(
+        `Delivery unavailable: Location (${pincodeCheck.locality || formData.pincode}) exceeds our ${currentRadiusLimit} KM delivery coverage area.`
       );
       return;
     }
@@ -364,7 +383,7 @@ export const Checkout: React.FC = () => {
                   />
                 </div>
 
-                <div className="form-group">
+                <div className="form-group pincode-group">
                   <label htmlFor="pincode">
                     Pincode <span className="required">*</span>
                   </label>
@@ -375,12 +394,67 @@ export const Checkout: React.FC = () => {
                     placeholder="600053"
                     value={formData.pincode}
                     onChange={handleInputChange}
-                    className="form-input"
+                    className={`form-input ${
+                      cleanPincode.length === 6
+                        ? pincodeCheck.isDeliverable
+                          ? 'input-valid'
+                          : 'input-invalid'
+                        : ''
+                    }`}
                     maxLength={6}
                     required
                     disabled={isSubmitting}
                   />
                   {errors.pincode && <span className="field-error">{errors.pincode}</span>}
+
+                  {/* Real-time Delivery Radius Check Box */}
+                  {cleanPincode.length === 6 && (
+                    <div
+                      className={`pincode-radius-card ${
+                        pincodeCheck.isDeliverable ? 'within-radius' : 'exceeds-radius'
+                      }`}
+                    >
+                      <span className="radius-card-icon">
+                        {pincodeCheck.isDeliverable ? '✅' : '⛔'}
+                      </span>
+                      <div className="radius-card-body">
+                        <div className="radius-card-header-row">
+                          <strong className="radius-card-locality">
+                            {pincodeCheck.locality || `PIN ${pincodeCheck.pincode}`}
+                          </strong>
+                          {pincodeCheck.approxDistanceKm !== null && (
+                            <span
+                              className={`radius-distance-badge ${
+                                !pincodeCheck.isDeliverable ? 'limit-exceeded' : ''
+                              }`}
+                            >
+                              ~{pincodeCheck.approxDistanceKm} KM from restaurant
+                            </span>
+                          )}
+                        </div>
+                        <p className="radius-card-desc">
+                          {pincodeCheck.isDeliverable ? (
+                            <>
+                              Within our <strong>{currentRadiusLimit} KM</strong> doorstep delivery zone from Ambattur.
+                            </>
+                          ) : (
+                            <>
+                              Exceeds our maximum delivery radius of <strong>{currentRadiusLimit} KM</strong> from our Ambattur kitchen.
+                            </>
+                          )}
+                        </p>
+                        {!pincodeCheck.isDeliverable && (
+                          <div className="radius-card-suggestion">
+                            💡 For locations beyond {currentRadiusLimit} KM, please call{' '}
+                            <a href={`tel:${settings.contact_phone || restaurant.contact.phone}`}>
+                              {settings.contact_phone_display || restaurant.contact.phoneDisplay}
+                            </a>{' '}
+                            for special party or bulk orders.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -464,6 +538,18 @@ export const Checkout: React.FC = () => {
                   <span>₹{deliveryFee}</span>
                 </div>
               )}
+              <div className="summary-line delivery-zone-line">
+                <span>Delivery Coverage:</span>
+                <span className={pincodeCheck.isDeliverable ? 'zone-eligible' : 'zone-ineligible'}>
+                  {cleanPincode.length === 6 ? (
+                    pincodeCheck.isDeliverable
+                      ? `Within ${currentRadiusLimit} KM (~${pincodeCheck.approxDistanceKm} KM)`
+                      : `Exceeds ${currentRadiusLimit} KM Limit`
+                  ) : (
+                    `Max ${currentRadiusLimit} KM Radius`
+                  )}
+                </span>
+              </div>
               <div className="summary-line grand-total">
                 <span>Total Amount (COD)</span>
                 <span>₹{grandTotal}</span>
@@ -474,7 +560,12 @@ export const Checkout: React.FC = () => {
               type="submit"
               form="checkout-form"
               className="place-order-btn"
-              disabled={isSubmitting || !meetsMinimum || !settings.is_ordering_enabled}
+              disabled={
+                isSubmitting ||
+                !meetsMinimum ||
+                !settings.is_ordering_enabled ||
+                (cleanPincode.length === 6 && !pincodeCheck.isDeliverable)
+              }
             >
               {isSubmitting ? (
                 <>
@@ -485,6 +576,8 @@ export const Checkout: React.FC = () => {
                 <span>Online Ordering Closed</span>
               ) : !meetsMinimum ? (
                 <span>Add ₹{amountNeededForMinimum} more</span>
+              ) : cleanPincode.length === 6 && !pincodeCheck.isDeliverable ? (
+                <span>Address Exceeds {currentRadiusLimit} KM Delivery Limit</span>
               ) : (
                 <span>Place Order (Cash on Delivery) →</span>
               )}

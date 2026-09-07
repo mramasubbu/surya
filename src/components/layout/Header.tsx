@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { restaurant } from '../../data/restaurant';
 import { Button } from '../common/Button';
 import { useCart } from '../../context/CartContext';
+import { useSiteSettings } from '../../hooks/useSiteSettings';
 import './Header.css';
 
 const navLinks = [
@@ -19,6 +20,12 @@ export const Header: React.FC = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
   const { totalCount, openCart } = useCart();
+  const { settings } = useSiteSettings();
+
+  const siteShortName = settings.site_short_name || 'Surya';
+  const siteTagline = settings.site_tagline || 'Multicuisine Restaurant';
+  const logoUrl = settings.logo_url || '/images/branding/logo.svg';
+  const phone = settings.contact_phone || restaurant.contact.phone;
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 40);
@@ -39,11 +46,11 @@ export const Header: React.FC = () => {
   return (
     <header className={`header ${isScrolled ? 'header-scrolled' : ''}`} role="banner">
       <div className="header-inner container">
-        <Link to="/" className="header-logo" aria-label="Surya Restaurant Home">
-          <img src="/images/branding/logo.svg" alt="Surya Logo" className="logo-img" width="40" height="40" />
+        <Link to="/" className="header-logo" aria-label={`${siteShortName} Home`}>
+          <img src={logoUrl} alt={`${siteShortName} Logo`} className="logo-img" width="40" height="40" />
           <div className="logo-text">
-            <span className="logo-name">Surya</span>
-            <span className="logo-tagline">Multicuisine Restaurant</span>
+            <span className="logo-name">{siteShortName}</span>
+            <span className="logo-tagline">{siteTagline}</span>
           </div>
         </Link>
 
@@ -129,7 +136,7 @@ export const Header: React.FC = () => {
           <Button variant="ghost" size="lg" fullWidth href="/reservations">
             Reserve Table
           </Button>
-          <Button variant="ghost" size="lg" fullWidth href={`tel:${restaurant.contact.phone}`}>
+          <Button variant="ghost" size="lg" fullWidth href={`tel:${phone}`}>
             📞 Call Now
           </Button>
         </div>

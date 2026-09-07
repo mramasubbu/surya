@@ -2,19 +2,26 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { restaurant } from '../../data/restaurant';
 import { useCart } from '../../context/CartContext';
+import { useSiteSettings } from '../../hooks/useSiteSettings';
 import './MobileActionBar.css';
 
 export const MobileActionBar: React.FC = () => {
   const { totalCount, openCart } = useCart();
+  const { settings } = useSiteSettings();
+
+  const phone = settings.contact_phone || restaurant.contact.phone;
+  const whatsapp = (settings.contact_whatsapp || restaurant.contact.whatsapp).replace('+', '');
+  const siteName = settings.site_name || restaurant.name;
+  const directionsUrl = settings.google_maps_url || restaurant.links.directions;
 
   return (
     <div className="mobile-action-bar" role="navigation" aria-label="Quick actions">
-      <a href={`tel:${restaurant.contact.phone}`} className="mobile-action" aria-label="Call restaurant">
+      <a href={`tel:${phone}`} className="mobile-action" aria-label="Call restaurant">
         <span className="mobile-action-icon">📞</span>
         <span className="mobile-action-label">Call</span>
       </a>
       <a
-        href={`https://wa.me/${restaurant.contact.whatsapp.replace('+', '')}?text=${encodeURIComponent('Hi, I would like to know more about Surya Multicuisine Restaurant & Cafe.')}`}
+        href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(`Hi, I would like to know more about ${siteName}.`)}`}
         target="_blank"
         rel="noopener noreferrer"
         className="mobile-action"
@@ -23,7 +30,7 @@ export const MobileActionBar: React.FC = () => {
         <span className="mobile-action-icon">💬</span>
         <span className="mobile-action-label">WhatsApp</span>
       </a>
-      <a href={restaurant.links.directions} target="_blank" rel="noopener noreferrer" className="mobile-action" aria-label="Get directions">
+      <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="mobile-action" aria-label="Get directions">
         <span className="mobile-action-icon">🗺️</span>
         <span className="mobile-action-label">Directions</span>
       </a>

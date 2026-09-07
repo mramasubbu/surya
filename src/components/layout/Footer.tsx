@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { restaurant } from '../../data/restaurant';
+import { useSiteSettings } from '../../hooks/useSiteSettings';
 import './Footer.css';
 
 const quickLinks = [
@@ -13,6 +14,18 @@ const quickLinks = [
 ];
 
 export const Footer: React.FC = () => {
+  const { settings } = useSiteSettings();
+
+  const brandName = settings.site_short_name || 'Surya';
+  const brandTagline = settings.site_tagline || 'Multicuisine Restaurant & Cafe';
+  const fullName = settings.site_name || restaurant.name;
+  const logoUrl = settings.logo_url || '/images/branding/logo.svg';
+  const address = settings.address_full || restaurant.address.full;
+  const phone = settings.contact_phone || restaurant.contact.phone;
+  const phoneDisplay = settings.contact_phone_display || restaurant.contact.phoneDisplay;
+  const hours = settings.operating_hours || restaurant.hours.display;
+  const directionsUrl = settings.google_maps_url || restaurant.links.directions;
+
   return (
     <footer className="footer" role="contentinfo">
       <div className="container">
@@ -20,10 +33,10 @@ export const Footer: React.FC = () => {
           {/* Brand */}
           <div className="footer-brand">
             <div className="footer-logo">
-              <img src="/images/branding/logo.svg" alt="Surya Logo" className="footer-logo-img" width="44" height="44" />
+              <img src={logoUrl} alt={`${brandName} Logo`} className="footer-logo-img" width="44" height="44" />
               <div>
-                <h3 className="footer-brand-name">Surya</h3>
-                <p className="footer-brand-sub">Multicuisine Restaurant & Cafe</p>
+                <h3 className="footer-brand-name">{brandName}</h3>
+                <p className="footer-brand-sub">{brandTagline}</p>
               </div>
             </div>
             <p className="footer-desc">{restaurant.shortDescription}</p>
@@ -50,15 +63,15 @@ export const Footer: React.FC = () => {
             <div className="footer-contact">
               <div className="footer-contact-item">
                 <span className="footer-contact-icon">📍</span>
-                <p>{restaurant.address.full}</p>
+                <p>{address}</p>
               </div>
               <div className="footer-contact-item">
                 <span className="footer-contact-icon">📞</span>
-                <a href={`tel:${restaurant.contact.phone}`}>{restaurant.contact.phoneDisplay}</a>
+                <a href={`tel:${phone}`}>{phoneDisplay}</a>
               </div>
               <div className="footer-contact-item">
                 <span className="footer-contact-icon">🕐</span>
-                <p>{restaurant.hours.days}<br />{restaurant.hours.display}</p>
+                <p>{restaurant.hours.days}<br />{hours}</p>
               </div>
             </div>
           </div>
@@ -79,7 +92,7 @@ export const Footer: React.FC = () => {
               <a href={restaurant.links.googleReviews} target="_blank" rel="noopener noreferrer" className="footer-platform-link">
                 ⭐ Google Reviews
               </a>
-              <a href={restaurant.links.directions} target="_blank" rel="noopener noreferrer" className="footer-platform-link">
+              <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="footer-platform-link">
                 🗺️ Get Directions
               </a>
             </div>
@@ -88,7 +101,7 @@ export const Footer: React.FC = () => {
 
         {/* Bottom bar */}
         <div className="footer-bottom">
-          <p>© {new Date().getFullYear()} {restaurant.name}. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} {fullName}. All rights reserved.</p>
         </div>
       </div>
     </footer>

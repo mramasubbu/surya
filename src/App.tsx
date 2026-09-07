@@ -19,9 +19,13 @@ import { CartProvider } from './context/CartContext';
 import { CartDrawer } from './components/cart/CartDrawer';
 import { Checkout } from './pages/Checkout';
 import { OrderConfirmation } from './pages/OrderConfirmation';
+import { useSiteSettings } from './hooks/useSiteSettings';
 
 // Layout wrapper for customer-facing public pages
 const PublicLayout: React.FC = () => {
+  // Sync document title and meta SEO tags
+  useSiteSettings();
+
   return (
     <>
       <Header />

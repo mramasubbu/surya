@@ -101,6 +101,23 @@ export interface RestaurantSettingsRow {
   currency: string;
   restaurant_email: string;
   customer_email_notifications: boolean;
+  // Branding & Identity
+  site_name?: string;
+  site_short_name?: string;
+  site_tagline?: string;
+  logo_url?: string;
+  // SEO & Social Preview
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
+  og_image_url?: string;
+  // Contact & Location
+  contact_phone?: string;
+  contact_phone_display?: string;
+  contact_whatsapp?: string;
+  address_full?: string;
+  google_maps_url?: string;
+  operating_hours?: string;
   created_at: string;
   updated_at: string;
 }

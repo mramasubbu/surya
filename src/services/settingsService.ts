@@ -11,6 +11,23 @@ export const DEFAULT_SETTINGS: RestaurantSettingsRow = {
   currency: 'INR',
   restaurant_email: 'suryamulticuisine@gmail.com',
   customer_email_notifications: true,
+  // Branding & Identity
+  site_name: 'Surya Multicuisine Restaurant & Cafe',
+  site_short_name: 'Surya',
+  site_tagline: 'Multicuisine Restaurant & Cafe',
+  logo_url: '/images/branding/logo.svg',
+  // SEO & Social Preview
+  seo_title: 'Surya Multicuisine Restaurant & Cafe | Ambattur, Chennai',
+  seo_description: 'Surya Multicuisine Restaurant & Cafe located at 97, Vanagaram High Rd, Ambattur, Chennai. Serving delicious Biryani, Tandoori, Chinese, Seafood, BBQ & North Indian specialties. Dine-in, takeaway, delivery.',
+  seo_keywords: 'Surya Multicuisine Restaurant Chennai, Surya Multicuisine Restaurant Ambattur, Multicuisine restaurant in Ambattur, Biryani Ambattur, Tandoori Ambattur',
+  og_image_url: '/images/restaurant/hero-food-spread.jpg',
+  // Contact & Location
+  contact_phone: '+918015553780',
+  contact_phone_display: '+91 80155 53780',
+  contact_whatsapp: '+918015553780',
+  address_full: '97, Vanagaram High Road, Sivananda Nagar, Ambattur, Chennai, Tamil Nadu 600053',
+  google_maps_url: 'https://www.google.com/maps/search/Surya+Multicuisine+Restaurant+Ambattur+Chennai',
+  operating_hours: '11:00 AM – 11:00 PM',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
@@ -43,7 +60,7 @@ const setCachedSettings = (settings: RestaurantSettingsRow) => {
 };
 
 /**
- * Fetch restaurant settings (delivery fee, minimum order, etc.)
+ * Fetch restaurant settings (delivery fee, minimum order, branding, SEO)
  */
 export const fetchRestaurantSettings = async (): Promise<RestaurantSettingsRow> => {
   if (!isSupabaseConfigured()) {
@@ -63,11 +80,14 @@ export const fetchRestaurantSettings = async (): Promise<RestaurantSettingsRow> 
     }
 
     if (data) {
+      const cached = getCachedSettings();
       const parsed: RestaurantSettingsRow = {
+        ...DEFAULT_SETTINGS,
+        ...cached,
         ...data,
-        min_order_amount: Number(data.min_order_amount),
-        delivery_fee: Number(data.delivery_fee),
-        delivery_radius_km: Number(data.delivery_radius_km),
+        min_order_amount: Number(data.min_order_amount ?? DEFAULT_SETTINGS.min_order_amount),
+        delivery_fee: Number(data.delivery_fee ?? DEFAULT_SETTINGS.delivery_fee),
+        delivery_radius_km: Number(data.delivery_radius_km ?? DEFAULT_SETTINGS.delivery_radius_km),
       };
       setCachedSettings(parsed);
       return parsed;
@@ -81,7 +101,7 @@ export const fetchRestaurantSettings = async (): Promise<RestaurantSettingsRow> 
 };
 
 /**
- * Admin: Update restaurant ordering settings
+ * Admin: Update restaurant settings (Branding, SEO, Delivery, Alerts)
  */
 export const updateRestaurantSettings = async (
   updates: Partial<Omit<RestaurantSettingsRow, 'id' | 'created_at' | 'updated_at'>>
@@ -93,12 +113,15 @@ export const updateRestaurantSettings = async (
     updated_at: new Date().toISOString(),
   };
 
+  // Broadcast & update cache immediately
+  setCachedSettings(localUpdated);
+
   if (!isSupabaseConfigured()) {
-    setCachedSettings(localUpdated);
     return localUpdated;
   }
 
   try {
+    // 1. Attempt full upsert including any new columns
     const { data, error } = await supabase
       .from('restaurant_settings')
       .upsert({
@@ -110,12 +133,38 @@ export const updateRestaurantSettings = async (
       .single();
 
     if (error) {
-      console.warn('Supabase update restaurant_settings failed:', error.message);
-      setCachedSettings(localUpdated);
+      console.warn('Supabase full update failed, falling back to base columns:', error.message);
+
+      // If columns like site_name aren't in Supabase schema cache yet, save core columns so delivery fee works
+      const baseKeys = [
+        'is_ordering_enabled',
+        'is_delivery_enabled',
+        'min_order_amount',
+        'delivery_fee',
+        'delivery_radius_km',
+        'currency',
+        'restaurant_email',
+        'customer_email_notifications',
+      ] as const;
+
+      const baseUpdates: Record<string, unknown> = { id: 'default', updated_at: new Date().toISOString() };
+      for (const key of baseKeys) {
+        if (key in updates) {
+          baseUpdates[key] = (updates as Record<string, unknown>)[key];
+        }
+      }
+
+      await supabase
+        .from('restaurant_settings')
+        .upsert(baseUpdates)
+        .select()
+        .single();
+
       return localUpdated;
     }
 
     const parsed: RestaurantSettingsRow = {
+      ...localUpdated,
       ...data,
       min_order_amount: Number(data.min_order_amount),
       delivery_fee: Number(data.delivery_fee),
@@ -125,7 +174,6 @@ export const updateRestaurantSettings = async (
     return parsed;
   } catch (err: unknown) {
     console.error('Error updating restaurant settings:', err);
-    setCachedSettings(localUpdated);
     return localUpdated;
   }
 };

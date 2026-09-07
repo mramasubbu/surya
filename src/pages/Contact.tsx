@@ -4,9 +4,19 @@ import { SectionHeading } from '../components/common/SectionHeading';
 import { Button } from '../components/common/Button';
 import { restaurant } from '../data/restaurant';
 import { submitContactMessage } from '../services/contactService';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import './Contact.css';
 
 export const Contact: React.FC = () => {
+  const { settings } = useSiteSettings();
+  const address = settings.address_full || restaurant.address.full;
+  const phone = settings.contact_phone || restaurant.contact.phone;
+  const phoneDisplay = settings.contact_phone_display || restaurant.contact.phoneDisplay;
+  const whatsapp = (settings.contact_whatsapp || restaurant.contact.whatsapp).replace('+', '');
+  const hours = settings.operating_hours || restaurant.hours.display;
+  const directionsUrl = settings.google_maps_url || restaurant.links.directions;
+  const siteName = settings.site_name || restaurant.name;
+
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -78,8 +88,8 @@ export const Contact: React.FC = () => {
               <div className="contact-card">
                 <span className="contact-card-icon">📍</span>
                 <h3>Visit Us</h3>
-                <p>{restaurant.address.full}</p>
-                <Button variant="outline" size="sm" href={restaurant.links.directions} target="_blank">
+                <p>{address}</p>
+                <Button variant="outline" size="sm" href={directionsUrl} target="_blank">
                   Get Directions
                 </Button>
               </div>
@@ -87,8 +97,8 @@ export const Contact: React.FC = () => {
               <div className="contact-card">
                 <span className="contact-card-icon">📞</span>
                 <h3>Call Us</h3>
-                <a href={`tel:${restaurant.contact.phone}`} className="contact-phone">
-                  {restaurant.contact.phoneDisplay}
+                <a href={`tel:${phone}`} className="contact-phone">
+                  {phoneDisplay}
                 </a>
                 <p>Call us for enquiries, takeaway orders, or reservations</p>
               </div>
@@ -100,7 +110,7 @@ export const Contact: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  href={`https://wa.me/${restaurant.contact.whatsapp.replace('+', '')}?text=${encodeURIComponent('Hi, I would like to know more about Surya Multicuisine Restaurant & Cafe.')}`}
+                  href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(`Hi, I would like to know more about ${siteName}.`)}`}
                   target="_blank"
                 >
                   Message on WhatsApp
@@ -112,7 +122,7 @@ export const Contact: React.FC = () => {
                 <h3>Opening Hours</h3>
                 <p className="contact-hours">
                   <strong>{restaurant.hours.days}</strong><br />
-                  {restaurant.hours.display}
+                  {hours}
                 </p>
                 <p className="contact-hours-note">{restaurant.hours.note}</p>
               </div>
