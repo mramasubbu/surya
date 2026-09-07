@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { AdminLayout, type AdminTab } from '../components/AdminLayout';
 import { Button } from '../../components/common/Button';
 import {
@@ -51,8 +52,29 @@ import type {
 } from '../../types/database';
 import './AdminDashboard.css';
 
+const VALID_TABS: AdminTab[] = [
+  'overview',
+  'orders',
+  'categories',
+  'menu',
+  'offers',
+  'bookings',
+  'messages',
+  'settings',
+];
+
 export const AdminDashboard: React.FC = () => {
-  const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
+  const { tab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+
+  const currentTab: AdminTab = tab && VALID_TABS.includes(tab as AdminTab)
+    ? (tab as AdminTab)
+    : 'overview';
+
+  const handleSelectTab = useCallback((newTab: AdminTab) => {
+    navigate(`/admin/${newTab}`);
+  }, [navigate]);
+
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -642,7 +664,7 @@ export const AdminDashboard: React.FC = () => {
     return (
       <AdminLayout
         currentTab={currentTab}
-        onSelectTab={setCurrentTab}
+        onSelectTab={handleSelectTab}
         pendingOrdersCount={0}
         pendingBookingsCount={0}
         unreadMessagesCount={0}
@@ -667,7 +689,7 @@ export const AdminDashboard: React.FC = () => {
   return (
     <AdminLayout
       currentTab={currentTab}
-      onSelectTab={setCurrentTab}
+      onSelectTab={handleSelectTab}
       pendingOrdersCount={pendingOrders.length}
       pendingBookingsCount={pendingBookings.length}
       unreadMessagesCount={unreadMessages.length}
@@ -703,7 +725,7 @@ export const AdminDashboard: React.FC = () => {
               <p>Welcome back! Here is a summary of Surya Restaurant operations.</p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <Button variant="primary" size="sm" onClick={() => setCurrentTab('orders')}>
+              <Button variant="primary" size="sm" onClick={() => handleSelectTab('orders')}>
                 🛵 View Orders ({pendingOrders.length} pending)
               </Button>
               <Button variant="outline" size="sm" onClick={() => handleOpenItemModal()}>
@@ -714,7 +736,7 @@ export const AdminDashboard: React.FC = () => {
 
           {/* Metric Cards */}
           <div className="admin-metrics-grid">
-            <div className="admin-metric-card" onClick={() => setCurrentTab('orders')} style={{ cursor: 'pointer' }}>
+            <div className="admin-metric-card" onClick={() => handleSelectTab('orders')} style={{ cursor: 'pointer' }}>
               <div className="admin-metric-icon" style={{ backgroundColor: pendingOrders.length ? 'rgba(244, 185, 66, 0.2)' : undefined }}>
                 🛵
               </div>
@@ -726,7 +748,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="admin-metric-card" onClick={() => setCurrentTab('orders')} style={{ cursor: 'pointer' }}>
+            <div className="admin-metric-card" onClick={() => handleSelectTab('orders')} style={{ cursor: 'pointer' }}>
               <div className="admin-metric-icon" style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)' }}>
                 💵
               </div>
@@ -736,7 +758,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="admin-metric-card" onClick={() => setCurrentTab('menu')} style={{ cursor: 'pointer' }}>
+            <div className="admin-metric-card" onClick={() => handleSelectTab('menu')} style={{ cursor: 'pointer' }}>
               <div className="admin-metric-icon">🍛</div>
               <div className="admin-metric-info">
                 <span className="admin-metric-value">{allItems.length}</span>
@@ -744,7 +766,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="admin-metric-card" onClick={() => setCurrentTab('categories')} style={{ cursor: 'pointer' }}>
+            <div className="admin-metric-card" onClick={() => handleSelectTab('categories')} style={{ cursor: 'pointer' }}>
               <div className="admin-metric-icon">📁</div>
               <div className="admin-metric-info">
                 <span className="admin-metric-value">{categories.length}</span>
@@ -752,7 +774,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="admin-metric-card" onClick={() => setCurrentTab('bookings')} style={{ cursor: 'pointer' }}>
+            <div className="admin-metric-card" onClick={() => handleSelectTab('bookings')} style={{ cursor: 'pointer' }}>
               <div className="admin-metric-icon" style={{ backgroundColor: pendingBookings.length ? 'rgba(244, 185, 66, 0.2)' : undefined }}>
                 📅
               </div>
@@ -764,7 +786,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="admin-metric-card" onClick={() => setCurrentTab('messages')} style={{ cursor: 'pointer' }}>
+            <div className="admin-metric-card" onClick={() => handleSelectTab('messages')} style={{ cursor: 'pointer' }}>
               <div className="admin-metric-icon" style={{ backgroundColor: unreadMessages.length ? 'rgba(232, 114, 42, 0.2)' : undefined }}>
                 ✉️
               </div>
@@ -781,7 +803,7 @@ export const AdminDashboard: React.FC = () => {
           <div style={{ marginBottom: '2.5rem' }}>
             <div className="admin-section-header">
               <h2>Recent Online Orders (Cash on Delivery)</h2>
-              <Button variant="outline" size="sm" onClick={() => setCurrentTab('orders')}>
+              <Button variant="outline" size="sm" onClick={() => handleSelectTab('orders')}>
                 View All Orders ({orders.length})
               </Button>
             </div>
@@ -852,7 +874,7 @@ export const AdminDashboard: React.FC = () => {
           <div style={{ marginBottom: '2.5rem' }}>
             <div className="admin-section-header">
               <h2>Pending Table Bookings</h2>
-              <Button variant="outline" size="sm" onClick={() => setCurrentTab('bookings')}>
+              <Button variant="outline" size="sm" onClick={() => handleSelectTab('bookings')}>
                 View All Bookings ({bookings.length})
               </Button>
             </div>
@@ -941,7 +963,7 @@ export const AdminDashboard: React.FC = () => {
               >
                 ↻ Refresh
               </Button>
-              <Button variant="primary" size="sm" onClick={() => setCurrentTab('settings')}>
+              <Button variant="primary" size="sm" onClick={() => handleSelectTab('settings')}>
                 ⚙️ Ordering Settings
               </Button>
             </div>

@@ -97,6 +97,16 @@ function App() {
             }
           />
           <Route
+            path="/admin/:tab"
+            element={
+              <AdminRoute>
+                <Suspense fallback={<AdminLoadingFallback />}>
+                  <AdminDashboard />
+                </Suspense>
+              </AdminRoute>
+            }
+          />
+          <Route
             path="/admin/*"
             element={
               <AdminRoute>
