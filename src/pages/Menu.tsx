@@ -65,11 +65,21 @@ export const Menu: React.FC = () => {
         tab.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
       }
     }
+    const stickyBar = document.querySelector('.menu-tabs-sticky-bar');
+    if (stickyBar) {
+      const rect = stickyBar.getBoundingClientRect();
+      if (rect.top < 72) {
+        window.scrollTo({
+          top: window.scrollY + rect.top - 72,
+          behavior: 'smooth',
+        });
+      }
+    }
   };
 
   return (
     <main className="page-content">
-      <section className="page-hero">
+      <section className="page-hero" hidden>
         <div className="container">
           <h1>Our Menu</h1>
           <p>Explore our wide variety of dishes — freshly prepared with authentic flavours</p>
@@ -94,30 +104,36 @@ export const Menu: React.FC = () => {
               </button>
             )}
           </div>
+        </div>
 
-          {/* Category Tabs */}
-          <div className="menu-tabs-wrapper" ref={tabsRef}>
-            <div className="menu-tabs">
-              <button
-                data-cat="all"
-                className={`menu-tab ${activeCategory === 'all' ? 'menu-tab-active' : ''}`}
-                onClick={() => scrollCategoryIntoView('all')}
-              >
-                All ({grandTotalItems})
-              </button>
-              {categories.map((cat) => (
+        {/* Sticky Category Tabs Bar */}
+        <div className="menu-tabs-sticky-bar">
+          <div className="container">
+            <div className="menu-tabs-wrapper" ref={tabsRef}>
+              <div className="menu-tabs">
                 <button
-                  key={cat.id}
-                  data-cat={cat.id}
-                  className={`menu-tab ${activeCategory === cat.id ? 'menu-tab-active' : ''}`}
-                  onClick={() => scrollCategoryIntoView(cat.id)}
+                  data-cat="all"
+                  className={`menu-tab ${activeCategory === 'all' ? 'menu-tab-active' : ''}`}
+                  onClick={() => scrollCategoryIntoView('all')}
                 >
-                  {cat.name} ({cat.items.length})
+                  All ({grandTotalItems})
                 </button>
-              ))}
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    data-cat={cat.id}
+                    className={`menu-tab ${activeCategory === cat.id ? 'menu-tab-active' : ''}`}
+                    onClick={() => scrollCategoryIntoView(cat.id)}
+                  >
+                    {cat.name} ({cat.items.length})
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+        </div>
 
+        <div className="container">
           {/* Results count */}
           {searchQuery && (
             <p className="menu-results-count">{totalItems} item{totalItems !== 1 ? 's' : ''} found</p>
