@@ -144,28 +144,29 @@ export const CartDrawer: React.FC = () => {
         {/* Footer */}
         {items.length > 0 && (
           <div className="cart-footer">
-            <div className="cart-summary-line">
-              <span>Item Subtotal</span>
-              <span>₹{subtotal}</span>
-            </div>
-            <div className="cart-summary-line">
-              <span>
-                Delivery Fee {settings.delivery_radius_km ? `(~${settings.delivery_radius_km} KM)` : ''}
-              </span>
-              <span>
-                {deliveryFee > 0 ? (
-                  `₹${deliveryFee}`
-                ) : settings.is_delivery_enabled ? (
-                  <strong style={{ color: 'var(--color-success, #16a34a)' }}>FREE</strong>
-                ) : (
-                  'Not available'
-                )}
-              </span>
-            </div>
-            <div className="cart-summary-line total">
-              <span>Grand Total</span>
-              <span style={{ color: 'var(--color-primary)' }}>₹{grandTotal}</span>
-            </div>
+            {deliveryFee > 0 ? (
+              <>
+                <div className="cart-summary-line">
+                  <span>Item Subtotal</span>
+                  <span>₹{subtotal}</span>
+                </div>
+                <div className="cart-summary-line">
+                  <span>
+                    Delivery Fee {settings.delivery_radius_km ? `(~${settings.delivery_radius_km} KM)` : ''}
+                  </span>
+                  <span>₹{deliveryFee}</span>
+                </div>
+                <div className="cart-summary-line total">
+                  <span>Grand Total</span>
+                  <span style={{ color: 'var(--color-primary)' }}>₹{grandTotal}</span>
+                </div>
+              </>
+            ) : (
+              <div className="cart-summary-line total">
+                <span>Item Total</span>
+                <span style={{ color: 'var(--color-primary)' }}>₹{subtotal}</span>
+              </div>
+            )}
 
             <button
               className="cart-checkout-btn"
