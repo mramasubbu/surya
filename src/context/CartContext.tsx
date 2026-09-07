@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { MenuItemRow, RestaurantSettingsRow } from '../types/database';
-import { fetchRestaurantSettings, DEFAULT_SETTINGS } from '../services/settingsService';
+import { fetchRestaurantSettings, getCachedSettings } from '../services/settingsService';
 
 export interface CartItem {
   id: string;
@@ -47,7 +47,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
-  const [settings, setSettings] = useState<RestaurantSettingsRow>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<RestaurantSettingsRow>(getCachedSettings);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
 
   const loadSettings = useCallback(async () => {

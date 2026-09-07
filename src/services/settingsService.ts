@@ -18,7 +18,7 @@ export const DEFAULT_SETTINGS: RestaurantSettingsRow = {
 // In-memory/localStorage fallback cache for offline or pre-migration testing
 const SETTINGS_STORAGE_KEY = 'surya_restaurant_settings_cache';
 
-const getCachedSettings = (): RestaurantSettingsRow => {
+export const getCachedSettings = (): RestaurantSettingsRow => {
   try {
     const cached = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (cached) return { ...DEFAULT_SETTINGS, ...JSON.parse(cached) };
@@ -58,7 +58,7 @@ export const fetchRestaurantSettings = async (): Promise<RestaurantSettingsRow> 
       .maybeSingle();
 
     if (error) {
-      console.warn('Could not fetch restaurant_settings from Supabase, using default:', error.message);
+      console.warn('Could not fetch restaurant_settings from Supabase, using cached/default:', error.message);
       return getCachedSettings();
     }
 
@@ -86,31 +86,33 @@ export const fetchRestaurantSettings = async (): Promise<RestaurantSettingsRow> 
 export const updateRestaurantSettings = async (
   updates: Partial<Omit<RestaurantSettingsRow, 'id' | 'created_at' | 'updated_at'>>
 ): Promise<RestaurantSettingsRow> => {
+  const current = getCachedSettings();
+  const localUpdated: RestaurantSettingsRow = {
+    ...current,
+    ...updates,
+    updated_at: new Date().toISOString(),
+  };
+
   if (!isSupabaseConfigured()) {
-    const current = getCachedSettings();
-    const updated = { ...current, ...updates, updated_at: new Date().toISOString() };
-    setCachedSettings(updated);
-    return updated;
+    setCachedSettings(localUpdated);
+    return localUpdated;
   }
 
   try {
     const { data, error } = await supabase
       .from('restaurant_settings')
-      .update({
+      .upsert({
+        id: 'default',
         ...updates,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', 'default')
       .select()
       .single();
 
     if (error) {
-      // If table doesn't exist yet or permission error, update local cache and report
       console.warn('Supabase update restaurant_settings failed:', error.message);
-      const current = getCachedSettings();
-      const updated = { ...current, ...updates, updated_at: new Date().toISOString() };
-      setCachedSettings(updated);
-      return updated;
+      setCachedSettings(localUpdated);
+      return localUpdated;
     }
 
     const parsed: RestaurantSettingsRow = {
@@ -123,6 +125,8 @@ export const updateRestaurantSettings = async (
     return parsed;
   } catch (err: unknown) {
     console.error('Error updating restaurant settings:', err);
-    throw new Error(err instanceof Error ? err.message : 'Failed to update settings');
+    setCachedSettings(localUpdated);
+    return localUpdated;
   }
 };
+

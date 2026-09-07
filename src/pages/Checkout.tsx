@@ -456,12 +456,20 @@ export const Checkout: React.FC = () => {
                 <span>Food Subtotal ({items.reduce((a, b) => a + b.quantity, 0)} items)</span>
                 <span>₹{subtotal}</span>
               </div>
-              {deliveryFee > 0 && (
-                <div className="summary-line">
-                  <span>Delivery Charges</span>
-                  <span>₹{deliveryFee}</span>
-                </div>
-              )}
+              <div className="summary-line">
+                <span>
+                  Delivery Charges {settings.delivery_radius_km ? `(~${settings.delivery_radius_km} KM)` : ''}
+                </span>
+                <span>
+                  {deliveryFee > 0 ? (
+                    `₹${deliveryFee}`
+                  ) : settings.is_delivery_enabled ? (
+                    <strong style={{ color: 'var(--color-success, #16a34a)' }}>FREE</strong>
+                  ) : (
+                    'Not Available'
+                  )}
+                </span>
+              </div>
               <div className="summary-line grand-total">
                 <span>Total Amount (COD)</span>
                 <span>₹{grandTotal}</span>
@@ -487,24 +495,6 @@ export const Checkout: React.FC = () => {
                 <span>Place Order (Cash on Delivery) →</span>
               )}
             </button>
-
-            {deliveryFee === 0 && (
-              <div
-                style={{
-                  fontSize: '0.8rem',
-                  color: '#f97316',
-                  background: 'rgba(249, 115, 22, 0.08)',
-                  border: '1px dashed rgba(249, 115, 22, 0.35)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '0.6rem 0.8rem',
-                  textAlign: 'center',
-                  fontWeight: 600,
-                  marginTop: '0.75rem',
-                }}
-              >
-                🛵 Delivery fee extra based on delivery location
-              </div>
-            )}
 
             <p
               style={{
