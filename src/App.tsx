@@ -15,6 +15,11 @@ import { Gallery } from './pages/Gallery';
 import { Reservations } from './pages/Reservations';
 import { Contact } from './pages/Contact';
 
+import { CartProvider } from './context/CartContext';
+import { CartDrawer } from './components/cart/CartDrawer';
+import { Checkout } from './pages/Checkout';
+import { OrderConfirmation } from './pages/OrderConfirmation';
+
 // Layout wrapper for customer-facing public pages
 const PublicLayout: React.FC = () => {
   return (
@@ -23,6 +28,7 @@ const PublicLayout: React.FC = () => {
       <Outlet />
       <Footer />
       <MobileActionBar />
+      <CartDrawer />
     </>
   );
 };
@@ -53,17 +59,21 @@ const AdminLoadingFallback: React.FC = () => (
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Customer Pages */}
-          <Route element={<PublicLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/menu" element={<Menu />} />
-            <Route path="/gallery" element={<Gallery />} />
-            <Route path="/reservations" element={<Reservations />} />
-            <Route path="/contact" element={<Contact />} />
-          </Route>
+      <CartProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Customer Pages */}
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/menu" element={<Menu />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmation />} />
+              <Route path="/track/:orderNumber" element={<OrderConfirmation />} />
+              <Route path="/gallery" element={<Gallery />} />
+              <Route path="/reservations" element={<Reservations />} />
+              <Route path="/contact" element={<Contact />} />
+            </Route>
 
           {/* Admin Authentication */}
           <Route
@@ -98,8 +108,9 @@ function App() {
           />
         </Routes>
       </BrowserRouter>
-    </AuthProvider>
-  );
+    </CartProvider>
+  </AuthProvider>
+);
 }
 
 export default App;

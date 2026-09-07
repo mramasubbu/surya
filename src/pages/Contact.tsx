@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { SectionHeading } from '../components/common/SectionHeading';
 import { Button } from '../components/common/Button';
 import { restaurant } from '../data/restaurant';
@@ -251,8 +252,8 @@ export const Contact: React.FC = () => {
                   <p>Freshly packed hot parcels available all day from 11:00 AM to 11:00 PM. Call in advance to keep your order ready.</p>
                 </div>
                 <div className="contact-faq-item">
-                  <h4>🛵 Delivery Partners</h4>
-                  <p>We are officially partnered with Swiggy and Zomato/District for fast delivery to Ambattur and neighboring locations.</p>
+                  <h4>🛵 Direct Online Delivery & COD</h4>
+                  <p>Order directly from our website menu with Cash on Delivery (COD) for fast delivery to Ambattur and nearby locations (~3 KM).</p>
                 </div>
               </div>
             </div>
@@ -260,12 +261,17 @@ export const Contact: React.FC = () => {
 
           {/* Order Platforms */}
           <div className="contact-platforms">
-            <SectionHeading title="Order & Explore" subtitle="Find us on these platforms" />
+            <SectionHeading title="Order & Explore" subtitle="Order online or find us on verified platforms" />
             <div className="platform-grid">
+              <Link to="/menu" className="platform-card" style={{ borderColor: 'var(--color-primary)' }}>
+                <span className="platform-icon">🍛</span>
+                <h3 style={{ color: 'var(--color-primary)' }}>Direct Order (COD)</h3>
+                <p>Order online with Cash on Delivery</p>
+              </Link>
               <a href={restaurant.links.swiggy} target="_blank" rel="noopener noreferrer" className="platform-card">
                 <span className="platform-icon">🛵</span>
                 <h3>Swiggy</h3>
-                <p>Order for delivery</p>
+                <p>View partner listing</p>
               </a>
               <a href={restaurant.links.district} target="_blank" rel="noopener noreferrer" className="platform-card">
                 <span className="platform-icon">🍽️</span>

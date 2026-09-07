@@ -28,6 +28,13 @@ import {
   deleteOffer,
 } from '../../services/offersService';
 import { uploadRestaurantImage } from '../../services/storageService';
+import { fetchAdminOrders, updateOrderStatus } from '../../services/orderService';
+import {
+  fetchRestaurantSettings,
+  updateRestaurantSettings,
+  DEFAULT_SETTINGS,
+} from '../../services/settingsService';
+import { sendOrderEmailNotification } from '../../services/emailService';
 import type {
   CategoryWithItems,
   CategoryRow,
@@ -38,6 +45,9 @@ import type {
   DietType,
   BookingStatus,
   ContactMessageStatus,
+  OrderWithItems,
+  OrderStatus,
+  RestaurantSettingsRow,
 } from '../../types/database';
 import './AdminDashboard.css';
 
@@ -52,6 +62,20 @@ export const AdminDashboard: React.FC = () => {
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [messages, setMessages] = useState<ContactMessageRow[]>([]);
   const [offers, setOffers] = useState<OfferRow[]>([]);
+  const [orders, setOrders] = useState<OrderWithItems[]>([]);
+  const [settingsForm, setSettingsForm] = useState<RestaurantSettingsRow>(DEFAULT_SETTINGS);
+
+  // Orders tab filters
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+  const [orderDateFilter, setOrderDateFilter] = useState<'all' | 'today' | 'yesterday'>('all');
+  const [orderSearch, setOrderSearch] = useState<string>('');
+  const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
+  const [statusConfirmModal, setStatusConfirmModal] = useState<{
+    orderId: string;
+    newStatus: OrderStatus;
+    orderNumber: string;
+    label: string;
+  } | null>(null);
 
   // Menu tab filters
   const [menuSearch, setMenuSearch] = useState('');
@@ -120,16 +144,20 @@ export const AdminDashboard: React.FC = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [cats, bks, msgs, offs] = await Promise.all([
+      const [cats, bks, msgs, offs, ords, setts] = await Promise.all([
         fetchMenuWithCategories(true),
         fetchBookings(),
         fetchContactMessages(),
         fetchAllOffers(),
+        fetchAdminOrders(),
+        fetchRestaurantSettings(),
       ]);
       setCategories(cats);
       setBookings(bks);
       setMessages(msgs);
       setOffers(offs);
+      setOrders(ords);
+      setSettingsForm(setts);
     } catch (err: unknown) {
       console.error('Failed to load admin dashboard data:', err);
       notify('Failed to load some dashboard data. Check database connection.', 'error');
@@ -146,6 +174,122 @@ export const AdminDashboard: React.FC = () => {
   const allItems = categories.flatMap((c) => c.items);
   const pendingBookings = bookings.filter((b) => b.status === 'pending');
   const unreadMessages = messages.filter((m) => m.status === 'unread');
+  const pendingOrders = orders.filter((o) => o.order_status === 'pending');
+  const todayOrders = orders.filter((o) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(o.created_at) >= today;
+  });
+  const todayRevenue = todayOrders.reduce((sum, o) => sum + o.total_amount, 0);
+
+  // Filtered orders
+  const filteredOrders = orders.filter((o) => {
+    if (orderStatusFilter !== 'all' && o.order_status !== orderStatusFilter) {
+      return false;
+    }
+
+    if (orderDateFilter === 'today') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (new Date(o.created_at) < today) return false;
+    } else if (orderDateFilter === 'yesterday') {
+      const yest = new Date();
+      yest.setDate(yest.getDate() - 1);
+      yest.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const created = new Date(o.created_at);
+      if (created < yest || created >= today) return false;
+    }
+
+    if (orderSearch) {
+      const q = orderSearch.trim().toLowerCase();
+      const match =
+        o.order_number.toLowerCase().includes(q) ||
+        o.customer_name.toLowerCase().includes(q) ||
+        o.customer_phone.includes(q) ||
+        o.delivery_address.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+
+    return true;
+  });
+
+  // --- Order Status Handlers ---
+  const handleRequestStatusChange = (orderId: string, newStatus: OrderStatus, orderNumber: string) => {
+    const labels: Record<OrderStatus, string> = {
+      pending: 'Pending',
+      confirmed: 'Confirmed',
+      preparing: 'Preparing',
+      ready: 'Ready',
+      out_for_delivery: 'Out for Delivery',
+      delivered: 'Delivered',
+    };
+    setStatusConfirmModal({
+      orderId,
+      newStatus,
+      orderNumber,
+      label: labels[newStatus] || newStatus,
+    });
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!statusConfirmModal) return;
+    const { orderId, newStatus, orderNumber, label } = statusConfirmModal;
+    setActionLoading(true);
+    try {
+      await updateOrderStatus(orderId, newStatus);
+
+      // Decoupled status email notification
+      const targetOrder = orders.find((o) => o.id === orderId);
+      if (targetOrder) {
+        sendOrderEmailNotification({
+          type: 'STATUS_UPDATE',
+          order: { ...targetOrder, order_status: newStatus },
+          items: targetOrder.items,
+          previousStatus: targetOrder.order_status,
+          newStatus,
+        }).catch((err) => console.warn('Customer status update email error:', err));
+      }
+
+      notify(`Order ${orderNumber} marked as ${label}`);
+      setStatusConfirmModal(null);
+
+      // Refresh orders
+      const updated = await fetchAdminOrders();
+      setOrders(updated);
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder((prev) => (prev ? { ...prev, order_status: newStatus } : null));
+      }
+    } catch (err: unknown) {
+      notify(err instanceof Error ? err.message : 'Failed to update order status', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // --- Settings Handlers ---
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionLoading(true);
+    try {
+      const updated = await updateRestaurantSettings({
+        is_ordering_enabled: settingsForm.is_ordering_enabled,
+        is_delivery_enabled: settingsForm.is_delivery_enabled,
+        min_order_amount: Number(settingsForm.min_order_amount),
+        delivery_fee: Number(settingsForm.delivery_fee),
+        delivery_radius_km: Number(settingsForm.delivery_radius_km),
+        restaurant_email: settingsForm.restaurant_email.trim(),
+        customer_email_notifications: settingsForm.customer_email_notifications,
+      });
+      setSettingsForm(updated);
+      notify('Restaurant ordering settings saved successfully!');
+    } catch (err: unknown) {
+      notify(err instanceof Error ? err.message : 'Failed to save settings', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // --- Category Handlers ---
   const handleOpenCategoryModal = (cat?: CategoryRow) => {
@@ -499,6 +643,7 @@ export const AdminDashboard: React.FC = () => {
       <AdminLayout
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
+        pendingOrdersCount={0}
         pendingBookingsCount={0}
         unreadMessagesCount={0}
       >
@@ -523,6 +668,7 @@ export const AdminDashboard: React.FC = () => {
     <AdminLayout
       currentTab={currentTab}
       onSelectTab={setCurrentTab}
+      pendingOrdersCount={pendingOrders.length}
       pendingBookingsCount={pendingBookings.length}
       unreadMessagesCount={unreadMessages.length}
     >
@@ -557,17 +703,39 @@ export const AdminDashboard: React.FC = () => {
               <p>Welcome back! Here is a summary of Surya Restaurant operations.</p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <Button variant="primary" size="sm" onClick={() => handleOpenItemModal()}>
-                + Add Menu Item
+              <Button variant="primary" size="sm" onClick={() => setCurrentTab('orders')}>
+                🛵 View Orders ({pendingOrders.length} pending)
               </Button>
-              <Button variant="outline" size="sm" onClick={() => handleOpenOfferModal()}>
-                + Add Promotion
+              <Button variant="outline" size="sm" onClick={() => handleOpenItemModal()}>
+                + Add Menu Item
               </Button>
             </div>
           </div>
 
           {/* Metric Cards */}
           <div className="admin-metrics-grid">
+            <div className="admin-metric-card" onClick={() => setCurrentTab('orders')} style={{ cursor: 'pointer' }}>
+              <div className="admin-metric-icon" style={{ backgroundColor: pendingOrders.length ? 'rgba(244, 185, 66, 0.2)' : undefined }}>
+                🛵
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value" style={{ color: pendingOrders.length ? 'var(--color-primary)' : undefined }}>
+                  {pendingOrders.length}
+                </span>
+                <span className="admin-metric-label">Pending Orders</span>
+              </div>
+            </div>
+
+            <div className="admin-metric-card" onClick={() => setCurrentTab('orders')} style={{ cursor: 'pointer' }}>
+              <div className="admin-metric-icon" style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)' }}>
+                💵
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value" style={{ color: '#22c55e' }}>₹{todayRevenue}</span>
+                <span className="admin-metric-label">Today's Sales ({todayOrders.length})</span>
+              </div>
+            </div>
+
             <div className="admin-metric-card" onClick={() => setCurrentTab('menu')} style={{ cursor: 'pointer' }}>
               <div className="admin-metric-icon">🍛</div>
               <div className="admin-metric-info">
@@ -607,13 +775,76 @@ export const AdminDashboard: React.FC = () => {
                 <span className="admin-metric-label">Unread Inquiries</span>
               </div>
             </div>
+          </div>
 
-            <div className="admin-metric-card" onClick={() => setCurrentTab('offers')} style={{ cursor: 'pointer' }}>
-              <div className="admin-metric-icon">🏷️</div>
-              <div className="admin-metric-info">
-                <span className="admin-metric-value">{offers.filter((o) => o.is_active).length}</span>
-                <span className="admin-metric-label">Active Offers</span>
-              </div>
+          {/* Recent Online Orders */}
+          <div style={{ marginBottom: '2.5rem' }}>
+            <div className="admin-section-header">
+              <h2>Recent Online Orders (Cash on Delivery)</h2>
+              <Button variant="outline" size="sm" onClick={() => setCurrentTab('orders')}>
+                View All Orders ({orders.length})
+              </Button>
+            </div>
+            <div className="admin-table-container">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Order #</th>
+                    <th>Customer</th>
+                    <th>Delivery Area</th>
+                    <th>Items</th>
+                    <th>Total (COD)</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.slice(0, 5).map((ord) => (
+                    <tr key={ord.id} style={ord.order_status === 'pending' ? { backgroundColor: 'rgba(244, 185, 66, 0.05)' } : undefined}>
+                      <td>
+                        <strong style={{ color: 'var(--color-primary)' }}>{ord.order_number}</strong>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                          {new Date(ord.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </td>
+                      <td>
+                        <strong>{ord.customer_name}</strong>
+                        <div><a href={`tel:${ord.customer_phone}`} style={{ color: 'var(--color-accent)', fontSize: '0.8rem' }}>{ord.customer_phone}</a></div>
+                      </td>
+                      <td style={{ maxWidth: '180px', fontSize: '0.825rem' }}>
+                        {ord.delivery_address}
+                      </td>
+                      <td>{ord.items.length} items</td>
+                      <td>
+                        <strong style={{ color: '#22c55e' }}>₹{ord.total_amount}</strong>
+                        <span className="order-cod-tag">COD</span>
+                      </td>
+                      <td>
+                        <span className={`admin-badge badge-${ord.order_status}`}>
+                          {ord.order_status}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className="btn-icon"
+                          onClick={() => {
+                            setSelectedOrder(ord);
+                          }}
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {orders.length === 0 && (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
+                        No orders received yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -684,6 +915,261 @@ export const AdminDashboard: React.FC = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== ORDERS TAB ===================== */}
+      {currentTab === 'orders' && (
+        <div>
+          <div className="admin-section-header">
+            <div>
+              <h1>Online Orders Management</h1>
+              <p>Manage customer delivery orders, kitchen progress, and Cash on Delivery collection.</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setActionLoading(true);
+                  const ords = await fetchAdminOrders();
+                  setOrders(ords);
+                  setActionLoading(false);
+                  notify('Orders refreshed');
+                }}
+              >
+                ↻ Refresh
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => setCurrentTab('settings')}>
+                ⚙️ Ordering Settings
+              </Button>
+            </div>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="admin-metrics-grid">
+            <div className="admin-metric-card" style={{ borderColor: pendingOrders.length ? 'var(--color-primary)' : undefined }}>
+              <div className="admin-metric-icon" style={{ background: 'rgba(244, 185, 66, 0.2)' }}>
+                ⏳
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value" style={{ color: '#f4b942' }}>{pendingOrders.length}</span>
+                <span className="admin-metric-label">Pending Orders</span>
+              </div>
+            </div>
+
+            <div className="admin-metric-card">
+              <div className="admin-metric-icon" style={{ background: 'rgba(232, 114, 42, 0.2)' }}>
+                🍳
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value">
+                  {orders.filter((o) => o.order_status === 'confirmed' || o.order_status === 'preparing').length}
+                </span>
+                <span className="admin-metric-label">In Kitchen</span>
+              </div>
+            </div>
+
+            <div className="admin-metric-card">
+              <div className="admin-metric-icon" style={{ background: 'rgba(234, 88, 12, 0.2)' }}>
+                🛵
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value" style={{ color: '#fb923c' }}>
+                  {orders.filter((o) => o.order_status === 'out_for_delivery' || o.order_status === 'ready').length}
+                </span>
+                <span className="admin-metric-label">Ready & Out</span>
+              </div>
+            </div>
+
+            <div className="admin-metric-card">
+              <div className="admin-metric-icon" style={{ background: 'rgba(34, 197, 94, 0.2)' }}>
+                💵
+              </div>
+              <div className="admin-metric-info">
+                <span className="admin-metric-value" style={{ color: '#22c55e' }}>₹{todayRevenue}</span>
+                <span className="admin-metric-label">Today's Sales ({todayOrders.length} orders)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Controls / Filter Toolbar */}
+          <div className="admin-toolbar">
+            <div className="admin-search-box">
+              <span>🔍</span>
+              <input
+                type="text"
+                placeholder="Search Order #, Customer, Phone, Address..."
+                value={orderSearch}
+                onChange={(e) => setOrderSearch(e.target.value)}
+                style={{ width: '280px' }}
+              />
+              {orderSearch && (
+                <button
+                  style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer' }}
+                  onClick={() => setOrderSearch('')}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>Status:</span>
+              {(['all', 'pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered'] as const).map(
+                (st) => (
+                  <button
+                    key={st}
+                    className={`btn-chip ${orderStatusFilter === st ? 'active' : ''}`}
+                    onClick={() => setOrderStatusFilter(st)}
+                  >
+                    {st === 'all' ? 'All' : st === 'out_for_delivery' ? 'Out' : st}
+                  </button>
+                )
+              )}
+
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>Date:</span>
+              {(['all', 'today', 'yesterday'] as const).map((d) => (
+                <button
+                  key={d}
+                  className={`btn-chip ${orderDateFilter === d ? 'active' : ''}`}
+                  onClick={() => setOrderDateFilter(d)}
+                >
+                  {d === 'all' ? 'All Dates' : d.charAt(0).toUpperCase() + d.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Orders Table */}
+          <div className="admin-table-container">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Order #</th>
+                  <th>Customer & Contact</th>
+                  <th>Delivery Address</th>
+                  <th>Items</th>
+                  <th>Total (COD)</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.map((order) => (
+                  <tr key={order.id} style={order.order_status === 'pending' ? { backgroundColor: 'rgba(244, 185, 66, 0.05)' } : undefined}>
+                    <td>
+                      <strong style={{ color: 'var(--color-primary)', fontSize: '0.95rem' }}>
+                        {order.order_number}
+                      </strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                        {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •{' '}
+                        {new Date(order.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                      </div>
+                    </td>
+                    <td>
+                      <strong>{order.customer_name}</strong>
+                      <div>
+                        <a href={`tel:${order.customer_phone}`} style={{ color: 'var(--color-accent)', fontSize: '0.825rem' }}>
+                          📞 {order.customer_phone}
+                        </a>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{order.customer_email}</span>
+                    </td>
+                    <td style={{ maxWidth: '200px' }}>
+                      <div style={{ fontSize: '0.825rem', lineHeight: 1.3 }}>
+                        {order.delivery_address}
+                        {order.landmark && <span style={{ color: '#fbbf24' }}> (Near {order.landmark})</span>}
+                        <div><small style={{ color: 'var(--color-text-muted)' }}>PIN: {order.pincode}</small></div>
+                      </div>
+                      {order.customer_notes && (
+                        <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '2px', fontStyle: 'italic' }}>
+                          Note: "{order.customer_notes}"
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ maxWidth: '220px' }}>
+                      <div className="order-items-snippet">
+                        {order.items.map((it) => (
+                          <div key={it.id}>
+                            {it.item_name} × {it.quantity}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="order-price-highlight">₹{order.total_amount}</span>
+                      <div>
+                        <span className="order-cod-tag">COD</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: '4px' }}>
+                          (₹{order.subtotal} + ₹{order.delivery_fee})
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`admin-badge badge-${order.order_status}`}>
+                        {order.order_status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="admin-actions-cell" style={{ flexWrap: 'wrap', gap: '0.35rem' }}>
+                        {order.order_status === 'pending' && (
+                          <button
+                            className="order-progress-btn confirm"
+                            onClick={() => handleRequestStatusChange(order.id, 'confirmed', order.order_number)}
+                          >
+                            ✓ Confirm
+                          </button>
+                        )}
+                        {order.order_status === 'confirmed' && (
+                          <button
+                            className="order-progress-btn prepare"
+                            onClick={() => handleRequestStatusChange(order.id, 'preparing', order.order_number)}
+                          >
+                            🍳 Prepare
+                          </button>
+                        )}
+                        {order.order_status === 'preparing' && (
+                          <button
+                            className="order-progress-btn ready"
+                            onClick={() => handleRequestStatusChange(order.id, 'ready', order.order_number)}
+                          >
+                            📦 Ready
+                          </button>
+                        )}
+                        {order.order_status === 'ready' && (
+                          <button
+                            className="order-progress-btn deliver"
+                            onClick={() => handleRequestStatusChange(order.id, 'out_for_delivery', order.order_number)}
+                          >
+                            🛵 Out
+                          </button>
+                        )}
+                        {order.order_status === 'out_for_delivery' && (
+                          <button
+                            className="order-progress-btn done"
+                            onClick={() => handleRequestStatusChange(order.id, 'delivered', order.order_number)}
+                          >
+                            ✓ Delivered
+                          </button>
+                        )}
+                        <button className="btn-icon" onClick={() => setSelectedOrder(order)}>
+                          🧾 Details
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredOrders.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+                      No orders found matching your filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -1250,7 +1736,298 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* ===================== SETTINGS TAB ===================== */}
+      {currentTab === 'settings' && (
+        <div>
+          <div className="admin-section-header">
+            <div>
+              <h1>Restaurant Ordering Settings</h1>
+              <p>Configure delivery fees, minimum order amounts, and notification settings dynamically without code changes.</p>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              type="button"
+              disabled={actionLoading}
+              onClick={handleSaveSettings}
+            >
+              {actionLoading ? 'Saving...' : '💾 Save Settings'}
+            </Button>
+          </div>
+
+          <form id="restaurant-settings-form" onSubmit={handleSaveSettings}>
+            <div className="settings-form-grid">
+              {/* Online Ordering Controls */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <h3><span>📱</span> Online Ordering Service</h3>
+                </div>
+
+                <div className="settings-toggle-row">
+                  <div className="settings-toggle-label">
+                    <strong>Accept Online Orders</strong>
+                    <span>Allow customers to place orders from the website</span>
+                  </div>
+                  <label className="admin-toggle">
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.is_ordering_enabled}
+                      onChange={(e) =>
+                        setSettingsForm({ ...settingsForm, is_ordering_enabled: e.target.checked })
+                      }
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+
+                <div className="admin-form-group" style={{ marginTop: '1rem' }}>
+                  <label>Minimum Order Amount (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={10}
+                    required
+                    value={settingsForm.min_order_amount}
+                    onChange={(e) =>
+                      setSettingsForm({ ...settingsForm, min_order_amount: Number(e.target.value) })
+                    }
+                  />
+                  <small style={{ color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                    Orders below this subtotal will be blocked with a prompt to add more items. (Current: ₹{settingsForm.min_order_amount})
+                  </small>
+                </div>
+              </div>
+
+              {/* Delivery Fee & Area Controls */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <h3><span>🛵</span> Delivery & Charges</h3>
+                </div>
+
+                <div className="settings-toggle-row">
+                  <div className="settings-toggle-label">
+                    <strong>Enable Home Delivery</strong>
+                    <span>Accept delivery orders at customer doorstep</span>
+                  </div>
+                  <label className="admin-toggle">
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.is_delivery_enabled}
+                      onChange={(e) =>
+                        setSettingsForm({ ...settingsForm, is_delivery_enabled: e.target.checked })
+                      }
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+
+                <div className="admin-form-group" style={{ marginTop: '1rem' }}>
+                  <label>Delivery Fee (₹)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={5}
+                    required
+                    value={settingsForm.delivery_fee}
+                    onChange={(e) =>
+                      setSettingsForm({ ...settingsForm, delivery_fee: Number(e.target.value) })
+                    }
+                  />
+                  <small style={{ color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                    Currently set to ₹{settingsForm.delivery_fee}. Changing this updates all customer checkouts immediately.
+                  </small>
+                </div>
+
+                <div className="admin-form-group">
+                  <label>Delivery Radius (Approx KM)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={25}
+                    step={0.5}
+                    required
+                    value={settingsForm.delivery_radius_km}
+                    onChange={(e) =>
+                      setSettingsForm({ ...settingsForm, delivery_radius_km: Number(e.target.value) })
+                    }
+                  />
+                  <small style={{ color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                    Initial delivery radius around Ambattur (Default: 3.0 KM).
+                  </small>
+                </div>
+              </div>
+
+              {/* Notifications Controls */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <h3><span>✉️</span> Notifications</h3>
+                </div>
+
+                <div className="admin-form-group">
+                  <label>Restaurant Order Alert Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={settingsForm.restaurant_email}
+                    onChange={(e) =>
+                      setSettingsForm({ ...settingsForm, restaurant_email: e.target.value })
+                    }
+                  />
+                  <small style={{ color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                    Staff notification email address to receive incoming order details.
+                  </small>
+                </div>
+
+                <div className="settings-toggle-row">
+                  <div className="settings-toggle-label">
+                    <strong>Customer Email Receipts</strong>
+                    <span>Send confirmation and status update emails to customers</span>
+                  </div>
+                  <label className="admin-toggle">
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.customer_email_notifications}
+                      onChange={(e) =>
+                        setSettingsForm({ ...settingsForm, customer_email_notifications: e.target.checked })
+                      }
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <Button
+                variant="primary"
+                size="md"
+                type="submit"
+                disabled={actionLoading}
+                onClick={handleSaveSettings}
+              >
+                {actionLoading ? 'Saving...' : '💾 Save Restaurant Settings'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* ===================== MODALS ===================== */}
+
+      {/* Status Change Confirmation Modal */}
+      {statusConfirmModal && (
+        <div className="admin-modal-overlay" onClick={() => setStatusConfirmModal(null)}>
+          <div className="admin-modal" style={{ maxWidth: '420px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h2>Confirm Status Change</h2>
+              <button className="admin-modal-close" onClick={() => setStatusConfirmModal(null)}>✕</button>
+            </div>
+            <div className="admin-modal-body">
+              <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.5 }}>
+                Are you sure you want to mark Order{' '}
+                <strong style={{ color: 'var(--color-primary)' }}>
+                  {statusConfirmModal.orderNumber}
+                </strong>{' '}
+                as{' '}
+                <strong style={{ color: 'var(--color-accent)' }}>
+                  {statusConfirmModal.label}
+                </strong>?
+              </p>
+              <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                This will update the live customer order tracking timeline and trigger an email notification.
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <Button variant="ghost" size="sm" onClick={() => setStatusConfirmModal(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleConfirmStatusChange} disabled={actionLoading}>
+                {actionLoading ? 'Updating...' : `Confirm: Mark as ${statusConfirmModal.label}`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Details & Kitchen Ticket Modal */}
+      {selectedOrder && (
+        <div className="admin-modal-overlay" onClick={() => setSelectedOrder(null)}>
+          <div className="admin-modal" style={{ maxWidth: '620px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h2>Order #{selectedOrder.order_number} Details</h2>
+              <button className="admin-modal-close" onClick={() => setSelectedOrder(null)}>✕</button>
+            </div>
+            <div className="admin-modal-body">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className={`admin-badge badge-${selectedOrder.order_status}`} style={{ fontSize: '0.85rem' }}>
+                  {selectedOrder.order_status.toUpperCase()}
+                </span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                  {new Date(selectedOrder.created_at).toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              <div style={{ background: 'var(--color-bg-secondary)', padding: '14px', borderRadius: '8px' }}>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '0.9rem', color: 'var(--color-primary)' }}>Customer & Delivery</h4>
+                <div><strong>{selectedOrder.customer_name}</strong></div>
+                <div>Phone: <a href={`tel:${selectedOrder.customer_phone}`} style={{ color: 'var(--color-accent)' }}>{selectedOrder.customer_phone}</a></div>
+                <div>Email: {selectedOrder.customer_email}</div>
+                <div style={{ marginTop: '4px' }}>Address: {selectedOrder.delivery_address}{selectedOrder.landmark ? ` (Near ${selectedOrder.landmark})` : ''} - {selectedOrder.pincode}</div>
+                {selectedOrder.customer_notes && (
+                  <div style={{ color: '#fbbf24', marginTop: '6px', fontStyle: 'italic', fontSize: '0.85rem' }}>
+                    Note from customer: "{selectedOrder.customer_notes}"
+                  </div>
+                )}
+              </div>
+
+              <table className="admin-table" style={{ marginTop: '12px' }}>
+                <thead>
+                  <tr>
+                    <th>Dish</th>
+                    <th style={{ textAlign: 'center' }}>Qty</th>
+                    <th style={{ textAlign: 'right' }}>Price</th>
+                    <th style={{ textAlign: 'right' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedOrder.items.map((it) => (
+                    <tr key={it.id}>
+                      <td>{it.item_name}</td>
+                      <td style={{ textAlign: 'center' }}>{it.quantity}</td>
+                      <td style={{ textAlign: 'right' }}>₹{it.item_price}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>₹{it.line_total}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td colSpan={3} style={{ textAlign: 'right', color: 'var(--color-text-muted)' }}>Food Subtotal:</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>₹{selectedOrder.subtotal}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={3} style={{ textAlign: 'right', color: 'var(--color-text-muted)' }}>Delivery Fee:</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>₹{selectedOrder.delivery_fee}</td>
+                  </tr>
+                  <tr style={{ background: 'rgba(232, 114, 42, 0.1)' }}>
+                    <td colSpan={3} style={{ textAlign: 'right', fontWeight: 800, color: 'var(--color-primary)' }}>
+                      Grand Total (Cash to Collect):
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--color-primary)' }}>
+                      ₹{selectedOrder.total_amount}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="admin-modal-footer">
+              <Button variant="outline" size="sm" onClick={() => window.print()}>
+                🖨️ Print Ticket / Invoice
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => setSelectedOrder(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 1. Category Modal */}
       {showCategoryModal && (

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { restaurant } from '../../data/restaurant';
 import { Button } from '../common/Button';
+import { useCart } from '../../context/CartContext';
 import './Header.css';
 
 const navLinks = [
@@ -17,6 +18,7 @@ export const Header: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
+  const { totalCount, openCart } = useCart();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 40);
@@ -58,11 +60,19 @@ export const Header: React.FC = () => {
         </nav>
 
         <div className="header-actions">
+          <button
+            className="header-cart-btn"
+            onClick={openCart}
+            aria-label={`View cart with ${totalCount} items`}
+          >
+            <span>🛒</span>
+            <span>Cart</span>
+            {totalCount > 0 && <span className="header-cart-badge">{totalCount}</span>}
+          </button>
           <Button
             variant="outline"
             size="sm"
-            href={restaurant.links.swiggy}
-            target="_blank"
+            href="/menu"
           >
             Order Online
           </Button>
@@ -102,10 +112,21 @@ export const Header: React.FC = () => {
           ))}
         </nav>
         <div className="mobile-nav-actions">
-          <Button variant="outline" size="lg" fullWidth href={restaurant.links.swiggy} target="_blank">
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            onClick={() => {
+              setIsMobileOpen(false);
+              openCart();
+            }}
+          >
+            🛒 View Cart {totalCount > 0 ? `(${totalCount})` : ''}
+          </Button>
+          <Button variant="outline" size="lg" fullWidth href="/menu">
             Order Online
           </Button>
-          <Button variant="primary" size="lg" fullWidth href="/reservations">
+          <Button variant="ghost" size="lg" fullWidth href="/reservations">
             Reserve Table
           </Button>
           <Button variant="ghost" size="lg" fullWidth href={`tel:${restaurant.contact.phone}`}>

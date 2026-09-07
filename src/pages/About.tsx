@@ -75,7 +75,7 @@ export const About: React.FC = () => {
             <div className="experience-card">
               <span className="experience-icon">🛵</span>
               <h3>Delivery Available</h3>
-              <p>Get your favourite dishes delivered via Swiggy — fresh and fast</p>
+              <p>Get your favourite dishes delivered directly from our kitchen with Cash on Delivery</p>
             </div>
             <div className="experience-card">
               <span className="experience-icon">📦</span>

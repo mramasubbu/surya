@@ -31,7 +31,7 @@ const initialPopular: MenuItemRow[] = getPopularItems().slice(0, 6).map((item, i
 const highlights = [
   { icon: '🍽️', title: 'Multicuisine Dining', desc: 'North Indian, Chinese, Tandoori, Seafood & BBQ under one roof' },
   { icon: '👨‍👩‍👧‍👦', title: 'Family Friendly', desc: 'Comfortable AC dining for families and groups' },
-  { icon: '🛵', title: 'Delivery & Takeaway', desc: 'Order online via Swiggy or pick up your favourites' },
+  { icon: '🛵', title: 'Home Delivery & COD', desc: 'Direct online ordering with Cash on Delivery or quick takeaway' },
   { icon: '📍', title: 'Convenient Location', desc: 'Vanagaram High Road, Ambattur — easy to find and reach' },
 ];
 
@@ -217,11 +217,11 @@ export const Home: React.FC = () => {
         <div className="container">
           <div className="order-card">
             <div className="order-content">
-              <h2>Order Online</h2>
-              <p>Get your favourite dishes delivered to your doorstep</p>
+              <h2>Order Direct Online</h2>
+              <p>Freshly prepared dishes delivered straight from our kitchen with Cash on Delivery (COD)</p>
               <div className="order-buttons">
-                <Button variant="primary" size="lg" href={restaurant.links.swiggy} target="_blank" icon={<span>🛵</span>}>Order on Swiggy</Button>
-                <Button variant="outline" size="lg" href={restaurant.links.district} target="_blank" icon={<span>🍽️</span>}>View on Zomato</Button>
+                <Button variant="primary" size="lg" href="/menu" icon={<span>🍛</span>}>Order Online (COD)</Button>
+                <Button variant="outline" size="lg" href={restaurant.links.swiggy} target="_blank" icon={<span>🛵</span>}>Also on Swiggy</Button>
               </div>
             </div>
           </div>
@@ -293,7 +293,7 @@ const HeroSection: React.FC = () => {
         </p>
         <div className="hero-actions">
           <Button variant="primary" size="lg" href="/menu">View Menu</Button>
-          <Button variant="secondary" size="lg" href={restaurant.links.swiggy} target="_blank">Order Online</Button>
+          <Button variant="secondary" size="lg" href="/menu">Order Online (COD)</Button>
         </div>
       </div>
     </section>

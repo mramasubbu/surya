@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { fetchMenuWithCategories } from '../services/menuService';
+import { useCart } from '../context/CartContext';
 import type { CategoryWithItems, MenuItemRow } from '../types/database';
 import './Menu.css';
 
@@ -9,6 +10,7 @@ export const Menu: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const tabsRef = useRef<HTMLDivElement>(null);
+  const { totalCount, subtotal, openCart } = useCart();
 
   useEffect(() => {
     let isMounted = true;
@@ -154,6 +156,19 @@ export const Menu: React.FC = () => {
           )}
         </div>
       </section>
+
+      {/* Floating Cart Bar (Appears when items are in cart) */}
+      {totalCount > 0 && (
+        <div className="menu-floating-cart-bar">
+          <div className="menu-floating-cart-info">
+            <span className="menu-floating-cart-count">{totalCount} item{totalCount !== 1 ? 's' : ''}</span>
+            <span className="menu-floating-cart-subtotal">₹{subtotal}</span>
+          </div>
+          <button className="menu-floating-cart-action" onClick={openCart}>
+            View Cart 🛒 →
+          </button>
+        </div>
+      )}
     </main>
   );
 };
@@ -175,6 +190,9 @@ const MenuCategorySection: React.FC<{ category: CategoryWithItems }> = ({ catego
 };
 
 const MenuItemCard: React.FC<{ item: MenuItemRow }> = ({ item }) => {
+  const { getItemQuantity, addItem, updateQuantity } = useCart();
+  const quantity = getItemQuantity(item.id);
+
   return (
     <div
       className="menu-item-card"
@@ -199,13 +217,50 @@ const MenuItemCard: React.FC<{ item: MenuItemRow }> = ({ item }) => {
           {item.description && <p className="menu-item-desc">{item.description}</p>}
         </div>
       </div>
-      <div className="menu-item-price">
-        {item.price_label ? (
-          <span>₹{item.price_label}</span>
+
+      <div className="menu-item-actions">
+        <div className="menu-item-price">
+          {item.price_label ? (
+            <span>₹{item.price_label}</span>
+          ) : (
+            <span>₹{item.price}</span>
+          )}
+        </div>
+
+        {/* Add to Cart or Stepper */}
+        {!item.is_available ? (
+          <button className="menu-add-btn" disabled>
+            Sold Out
+          </button>
+        ) : quantity === 0 ? (
+          <button
+            className="menu-add-btn"
+            onClick={() => addItem(item, 1)}
+            aria-label={`Add ${item.name} to cart`}
+          >
+            ADD +
+          </button>
         ) : (
-          <span>₹{item.price}</span>
+          <div className="menu-card-stepper">
+            <button
+              className="menu-card-stepper-btn"
+              onClick={() => updateQuantity(item.id, quantity - 1)}
+              aria-label={`Decrease ${item.name}`}
+            >
+              –
+            </button>
+            <span className="menu-card-stepper-qty">{quantity}</span>
+            <button
+              className="menu-card-stepper-btn"
+              onClick={() => updateQuantity(item.id, quantity + 1)}
+              aria-label={`Increase ${item.name}`}
+            >
+              +
+            </button>
+          </div>
         )}
       </div>
+
       {item.is_popular && <span className="menu-item-badge">Popular</span>}
     </div>
   );

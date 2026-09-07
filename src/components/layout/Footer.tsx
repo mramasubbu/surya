@@ -67,11 +67,14 @@ export const Footer: React.FC = () => {
           <div className="footer-section">
             <h4 className="footer-section-title">Order & Reviews</h4>
             <div className="footer-platform-links">
+              <Link to="/menu" className="footer-platform-link" style={{ color: 'var(--color-primary)', fontWeight: 700 }}>
+                🛵 Direct Online Order (COD)
+              </Link>
               <a href={restaurant.links.swiggy} target="_blank" rel="noopener noreferrer" className="footer-platform-link">
-                🛵 Order on Swiggy
+                🏷️ Swiggy Listing
               </a>
               <a href={restaurant.links.district} target="_blank" rel="noopener noreferrer" className="footer-platform-link">
-                🍽️ View on Zomato
+                🍽️ Zomato Listing
               </a>
               <a href={restaurant.links.googleReviews} target="_blank" rel="noopener noreferrer" className="footer-platform-link">
                 ⭐ Google Reviews

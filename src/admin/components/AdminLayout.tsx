@@ -4,11 +4,20 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../../components/common/Button';
 import './AdminLayout.css';
 
-export type AdminTab = 'overview' | 'categories' | 'menu' | 'offers' | 'bookings' | 'messages';
+export type AdminTab =
+  | 'overview'
+  | 'orders'
+  | 'categories'
+  | 'menu'
+  | 'offers'
+  | 'bookings'
+  | 'messages'
+  | 'settings';
 
 interface AdminLayoutProps {
   currentTab: AdminTab;
   onSelectTab: (tab: AdminTab) => void;
+  pendingOrdersCount?: number;
   pendingBookingsCount?: number;
   unreadMessagesCount?: number;
   children: React.ReactNode;
@@ -17,6 +26,7 @@ interface AdminLayoutProps {
 export const AdminLayout: React.FC<AdminLayoutProps> = ({
   currentTab,
   onSelectTab,
+  pendingOrdersCount = 0,
   pendingBookingsCount = 0,
   unreadMessagesCount = 0,
   children,
@@ -65,6 +75,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         </button>
 
         <button
+          className={`admin-nav-tab ${currentTab === 'orders' ? 'active' : ''}`}
+          onClick={() => onSelectTab('orders')}
+        >
+          🛵 Orders
+          {pendingOrdersCount > 0 && (
+            <span className="admin-badge-count">{pendingOrdersCount}</span>
+          )}
+        </button>
+
+        <button
           className={`admin-nav-tab ${currentTab === 'categories' ? 'active' : ''}`}
           onClick={() => onSelectTab('categories')}
         >
@@ -103,6 +123,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           {unreadMessagesCount > 0 && (
             <span className="admin-badge-count">{unreadMessagesCount}</span>
           )}
+        </button>
+
+        <button
+          className={`admin-nav-tab ${currentTab === 'settings' ? 'active' : ''}`}
+          onClick={() => onSelectTab('settings')}
+        >
+          ⚙️ Settings
         </button>
       </nav>
 

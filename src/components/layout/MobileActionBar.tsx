@@ -1,8 +1,12 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { restaurant } from '../../data/restaurant';
+import { useCart } from '../../context/CartContext';
 import './MobileActionBar.css';
 
 export const MobileActionBar: React.FC = () => {
+  const { totalCount, openCart } = useCart();
+
   return (
     <div className="mobile-action-bar" role="navigation" aria-label="Quick actions">
       <a href={`tel:${restaurant.contact.phone}`} className="mobile-action" aria-label="Call restaurant">
@@ -23,10 +27,23 @@ export const MobileActionBar: React.FC = () => {
         <span className="mobile-action-icon">🗺️</span>
         <span className="mobile-action-label">Directions</span>
       </a>
-      <a href={restaurant.links.swiggy} target="_blank" rel="noopener noreferrer" className="mobile-action mobile-action-primary" aria-label="Order online">
-        <span className="mobile-action-icon">🛵</span>
-        <span className="mobile-action-label">Order</span>
-      </a>
+
+      {totalCount > 0 ? (
+        <button
+          onClick={openCart}
+          className="mobile-action mobile-action-primary"
+          aria-label={`Open cart with ${totalCount} items`}
+          style={{ position: 'relative' }}
+        >
+          <span className="mobile-action-icon">🛒</span>
+          <span className="mobile-action-label">Cart ({totalCount})</span>
+        </button>
+      ) : (
+        <Link to="/menu" className="mobile-action mobile-action-primary" aria-label="Order online">
+          <span className="mobile-action-icon">🍛</span>
+          <span className="mobile-action-label">Order</span>
+        </Link>
+      )}
     </div>
   );
 };
